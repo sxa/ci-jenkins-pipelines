@@ -220,7 +220,7 @@ class Build {
             } else if (buildConfig.VARIANT == "bisheng") {
                 jdkBranch = 'master'
             } else {
-                throw new Exception("Unrecognised build variant: ${buildConfig.VARIANT} ")
+                throw new Exception("Unrecognised build variant[0]: ${buildConfig.VARIANT} ")
             }
         }
 
@@ -252,7 +252,7 @@ class Build {
         } else if (buildConfig.VARIANT == "bisheng") {
             suffix = "openeuler-mirror/bishengjdk-${javaNumber}"
         } else {
-            throw new Exception("Unrecognised build variant: ${buildConfig.VARIANT} ")
+            throw new Exception("Unrecognised build variant [1]: ${buildConfig.VARIANT} ")
         }
 
         jdkRepo = "https://github.com/${suffix}"
