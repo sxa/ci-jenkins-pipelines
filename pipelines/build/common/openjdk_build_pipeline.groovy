@@ -139,7 +139,9 @@ class Build {
     E.g. Test_openjdk11_hs_sanity.system_ppc64_aix
     */
      def getSmokeTestJobParams() {
+        context.println "SXADEBUG: Entering getSmokeTestJobParams"
         def jobParams = getCommonTestJobParams()
+        context.println "SXADEBUG: Continuing getSmokeTestJobParams"
         jobParams.put('LEVELS', "extended")
         jobParams.put('GROUPS', "functional")
         jobParams.put('TEST_JOB_NAME', "${env.JOB_NAME}_SmokeTests")
@@ -160,7 +162,9 @@ class Build {
     }
 
     def getAQATestJobParams(testType) {
+        context.println "SXADEBUG: Entering getAQATestJobParams"
         def jobParams = getCommonTestJobParams()
+        context.println "SXADEBUG: Continuing getAQATestJobParams"
         def (level, group) = testType.tokenize('.')
         jobParams.put('LEVELS', level)
         jobParams.put('GROUPS', group)
@@ -178,13 +182,16 @@ class Build {
     }
 
     def getCommonTestJobParams() {
+        context.println "SXADEBUG: Entering getCommonTestJobParams"
         def jobParams = [:]
         String jdk_Version = getJavaVersionNumber() as String
         jobParams.put('JDK_VERSIONS', jdk_Version)
         if (buildConfig.VARIANT == "temurin") {
             jobParams.put('JDK_IMPL', 'hotspot')
+        context.println "SXADEBUG: Set JDK_IMPL to hotspot"
         } else { 
             jobParams.put('JDK_IMPL', buildConfig.VARIANT)
+            context.println "SXADEBUG: Set JDK_IMPL to VARAINT"
         }
 
         def arch = buildConfig.ARCHITECTURE
