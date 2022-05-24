@@ -85,14 +85,19 @@ In order to test whether your changes work use the [test-build-script-pull-reque
 Pass it your fork name (e.g. `https://github.com/sxa555/openjdk-build`) and the name of the branch and it will run a build using your updated scripts.
 For more information, see the [PR testing documentation](pipelines/build/prTester/README.md).
 
+Note that when your change is merged, only the top level openjdkXX-pipeline
+jobs are [regenerated automatically](https://ci.adoptopenjdk.net/job/build-scripts/job/utils/job/build-pipeline-generator/). If your change affects the lower level
+platform-specific jobs then one of the committers will need to run the
+[pipeline_jobs_generator_jdk* jobs](https://ci.adoptopenjdk.net/job/build-scripts/job/utils/)
+for those changes to take effect
+
 ## I want to use my own configuration files or scripts on my own Jenkins instance. How do I do it?
 
 Check out [Adopt's guide](docs/UsingOurScripts.md) to setting up your own scripts and configurations (while not having to keep up with Adopt's changes)!
 
 ## I want to build code from my own fork/branch of openjdk in jenkins
 
-You will need to add some parameters to the `BUILD_ARGS` on the individual
-platform-specific pipeline (or `additionalBuildArgs` if runnibg a top level pipeline) and
-specify `--disable-adopt-branch-safety` for example:
-
-`--disable-adopt-branch-safety -r https://github.com/sxa/openjdk-jdk11u -b mybranch`
+To build from your own fork you will need to adjust `BUILD_ARGS` to point to
+your fork (or `additionalBuildArgs` if running a top level pipeline). This
+can also be used to specify alternate configure arguments if you have extra
+compiler flags etc. See the temurin-build FAQ for more details.
