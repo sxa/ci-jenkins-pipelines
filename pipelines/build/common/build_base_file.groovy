@@ -810,6 +810,30 @@ class Builder implements Serializable {
                                         } catch (FlowInterruptedException e) {
                                             throw new Exception("[ERROR] Archive artifact timeout (${pipelineTimeouts.ARCHIVE_ARTIFACTS_TIMEOUT} HOURS) for ${downstreamJobName}has been reached. Exiting...")
                                         }
+                                        
+                                        context.println "RUNNING sign_temurin_gpg for ${config.TARGET_OS}/${config.ARCHITECTURE} ..."
+                                        def signSHAsJob = context.build job: "build-scripts/release/sign_temurin_gpg",
+                                          propagate: true,
+                                          parameters: [ context.string(name: 'UPSTREAM_JOB_NUMBER', value: "${env.BUILD_NUMBER}"),
+                                                        context.string(name: 'UPSTREAM_JOB_NAME', value: "${env.JOB_NAME}"),
+                                                        context.string(name: 'UPSTREAM_DIR', value: "target/${config.TARGET_OS}/${config.ARCHITECTURE}/${config.VARIANT}") ]
+
+                                        context.copyArtifacts(
+                                                projectName: "build-scripts/release/sign_temurin_gpg",
+                                                selector: context.specific("${signSHAsJob.getNumber()}"),
+                                                filter: '**/*.sha256.txt.sig',
+                                                fingerprintArtifacts: true,
+                                                target: "target/${config.TARGET_OS}/${config.ARCHITECTURE}/${config.VARIANT}/",
+                                                flatten: true)
+
+                                        // Archive GPG signatures in Jenkins
+                                        try {
+                                            context.timeout(time: pipelineTimeouts.ARCHIVE_ARTIFACTS_TIMEOUT, unit: "HOURS") {
+                                                context.archiveArtifacts artifacts: "target/${config.TARGET_OS}/${config.ARCHITECTURE}/${config.VARIANT}/*.sha256.txt.sig"
+                                            }
+                                        } catch (FlowInterruptedException e) {
+                                            throw new Exception("[ERROR] Archive artifact timeout (${pipelineTimeouts.ARCHIVE_ARTIFACTS_TIMEOUT} HOURS) for ${downstreamJobName}has been reached. Exiting...")
+                                        }
 
                                     }
                                 }
