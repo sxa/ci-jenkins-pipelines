@@ -821,7 +821,7 @@ class Builder implements Serializable {
                                         context.copyArtifacts(
                                                 projectName: "build-scripts/release/sign_temurin_gpg",
                                                 selector: context.specific("${signSHAsJob.getNumber()}"),
-                                                filter: '**/*.sha256.txt.sig',
+                                                filter: '**/*.sig',
                                                 fingerprintArtifacts: true,
                                                 target: "target/${config.TARGET_OS}/${config.ARCHITECTURE}/${config.VARIANT}/",
                                                 flatten: true)
