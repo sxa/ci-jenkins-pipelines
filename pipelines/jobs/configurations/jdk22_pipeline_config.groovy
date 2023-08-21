@@ -4,12 +4,12 @@ class Config22 {
         x64Mac    : [
                 os                  : 'mac',
                 arch                : 'x64',
-                additionalNodeLabels: 'macos10.14',
+                additionalNodeLabels: 'aarch64&&macos11',
                 additionalTestLabels: [
                         openj9      : '!sw.os.osx.10_11'
                 ],
                 test                : 'default',
-                configureArgs       : '--enable-dtrace',
+                configureArgs       : '--enable-dtrace --openjdk-target=macosx-x86_64-darwin',
                 buildArgs           : [
                         'temurin'   : '--create-jre-image --create-sbom'
                 ]

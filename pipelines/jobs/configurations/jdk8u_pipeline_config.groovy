@@ -5,11 +5,12 @@ class Config8 {
                 os                  : 'mac',
                 arch                : 'x64',
                 additionalNodeLabels: [
-                        temurin : 'macos10.14',
+                        temurin : 'aarch64&&macos11',
                         corretto: 'build-macstadium-macos1010-1',
-                        openj9  : 'macos10.14'
+                        openj9  : 'aarch64&&macos11'
                 ],
                 test                 : 'default',
+                configureArgs       : '--openjdk-target=macosx-x86_64-darwin',
                 buildArgs           : [
                         'temurin'   : '--create-sbom'
                 ]

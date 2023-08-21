@@ -4,11 +4,11 @@ class Config11 {
         x64Mac    : [
                 os                  : 'mac',
                 arch                : 'x64',
-                additionalNodeLabels : 'macos10.14',
+                additionalNodeLabels : 'aarch64&&macos11',
                 test                : 'default',
                 configureArgs       : [
-                        'openj9'      : '--enable-dtrace=auto --with-cmake',
-                        'temurin'     : '--enable-dtrace=auto'
+                        'openj9'      : '--enable-dtrace=auto --with-cmake --openjdk-target=macosx-x86_64-darwin',
+                        'temurin'     : '--enable-dtrace=auto --openjdk-target=macosx-x86_64-darwin'
                 ],
                 buildArgs           : [
                         'temurin'   : '--create-sbom'
