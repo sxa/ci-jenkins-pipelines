@@ -2088,6 +2088,12 @@ class Build {
                                     // Add uid and gid userns mapping required for podman
                                     dockerRunArg += " --userns keep-id:uid=1002,gid=1003"
                                 }
+
+                                // If running emulation platform, enable --cap-add=SYS_PTRACE to allow strace
+                                if (buildConfig.DOCKER_ARGS.contains('--platform')) {
+                                    dockerRunArg += " --cap-add=SYS_PTRACE"
+                                }
+
                                 context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
                                     buildScripts(
                                         cleanWorkspace,
