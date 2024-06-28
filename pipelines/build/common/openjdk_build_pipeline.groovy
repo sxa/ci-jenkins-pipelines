@@ -2091,7 +2091,7 @@ class Build {
 
                                 // For riscv64 we need to enable --security-opt seccomp=unconfined --cap-add=SYS_PTRACE to allow strace
                                 if (buildConfig.ARCHITECTURE == 'riscv64') {
-                                    dockerRunArg += " --security-opt seccomp=unconfined --cap-add=SYS_PTRACE"
+                                    dockerRunArg += " --privileged --security-opt seccomp=unconfined --cap-add=SYS_PTRACE"
                                 }
 
                                 context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
