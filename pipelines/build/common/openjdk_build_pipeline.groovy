@@ -2091,7 +2091,8 @@ class Build {
 
                                 // If running emulation platform, enable --cap-add=SYS_PTRACE to allow strace
                                 if (buildConfig.DOCKER_ARGS.contains('--platform')) {
-                                    dockerRunArg += " --security-opt='apparmor=unconfined' --cap-add=SYS_PTRACE"
+                                    dockerRunArg += " --security-opt seccomp=unconfined"
+ // --cap-add=SYS_PTRACE"
                                 }
 
                                 context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
