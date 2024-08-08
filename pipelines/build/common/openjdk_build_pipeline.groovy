@@ -1586,6 +1586,11 @@ class Build {
 
                     // Perform a git clean outside of checkout to avoid the Jenkins enforced 10 minute timeout
                     // https://github.com/adoptium/infrastucture/issues/1553
+
+                    context.sh(script: 'set')
+                    context.sh(script: 'pwd')
+                    context.sh(script: 'git config --global safe.directory /cygdrive/c/jw/workspace/build-scripts/jobs/jdk21u/jdk21u-windows-x64-docker')
+
                     context.sh(script: 'git clean -fdx')
 
                     printGitRepoInfo()
@@ -1609,6 +1614,7 @@ class Build {
                 // e.g. adoptium/temurin-build/master/build-farm/platform-specific-configurations
                 envVars.add("ADOPT_PLATFORM_CONFIG_LOCATION=${userOrgRepo}/${adoptBranch}/${ADOPT_DEFAULTS_JSON['configDirectories']['platform']}" as String)
 
+//        context.println 'SXAEC1'
                 // Execute build
                 context.withEnv(envVars) {
                     try {
@@ -1621,6 +1627,7 @@ class Build {
                                 context.println '[CHECKOUT] Checking out to adoptium/temurin-build...'
                                 repoHandler.checkoutAdoptBuild(context)
                                 printGitRepoInfo()
+//        context.println 'SXAEC1.1'
                                 if ((buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') && buildConfig.JAVA_TO_BUILD != 'jdk8u') {
                                     context.println "Processing exploded build, sign JMODS, and assemble build, for platform ${buildConfig.TARGET_OS} version ${buildConfig.JAVA_TO_BUILD}"
                                     def signBuildArgs
@@ -1751,6 +1758,7 @@ class Build {
                                         context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                     }
                                 } else {
+//        context.println 'SXAEC1.2'
                                     def buildArgs
                                     if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
                                         buildArgs = env.BUILD_ARGS + openjdk_build_dir_arg
@@ -1770,11 +1778,14 @@ class Build {
                                     repoHandler.checkoutUserPipelines(context)
                                 }
                                 printGitRepoInfo()
+//        context.println 'SXAEC1.3'
                             } else {
                                 context.println "[CHECKOUT] Checking out to the user's temurin-build..."
                                 repoHandler.setUserDefaultsJson(context, DEFAULTS_JSON)
                                 repoHandler.checkoutUserBuild(context)
                                 printGitRepoInfo()
+//                                        context.println 'SXAEC1.4'
+
                                 def buildArgs
                                 if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
                                     buildArgs = env.BUILD_ARGS + openjdk_build_dir_arg
@@ -1787,6 +1798,8 @@ class Build {
                                 context.println '[CHECKOUT] Reverting pre-build user temurin-build checkout...'
                                 repoHandler.checkoutUserPipelines(context)
                                 printGitRepoInfo()
+//                                        context.println 'SXAEC1.5'
+
                             }
                         }
                     } catch (FlowInterruptedException e) {
@@ -2083,6 +2096,8 @@ class Build {
                                         context.sh(script: 'git clean -fdx')
 
                                         printGitRepoInfo()
+//                                                context.println 'SXAEC1.6'
+
                                     }
                                 } catch (FlowInterruptedException e) {
                                     throw new Exception("[ERROR] Controller docker file scm checkout timeout (${buildTimeouts.DOCKER_CHECKOUT_TIMEOUT} HOURS) has been reached. Exiting...")
