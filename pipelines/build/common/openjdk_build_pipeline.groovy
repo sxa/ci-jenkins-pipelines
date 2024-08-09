@@ -1589,7 +1589,7 @@ class Build {
 
                     context.sh(script: 'set')
                     context.sh(script: 'pwd')
-                    context.sh(script: 'git config --global safe.directory /cygdrive/c/jw/workspace/build-scripts/jobs/jdk21u/jdk21u-windows-x64-docker')
+                    context.sh(script: 'git config --global safe.directory /cygdrive/c/jw/workspace/build-scripts/jobs/jdk21u/windbld')
 
                     context.sh(script: 'git clean -fdx')
 
