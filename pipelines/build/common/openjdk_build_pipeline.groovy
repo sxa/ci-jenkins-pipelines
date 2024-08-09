@@ -1587,8 +1587,11 @@ class Build {
                     // Perform a git clean outside of checkout to avoid the Jenkins enforced 10 minute timeout
                     // https://github.com/adoptium/infrastucture/issues/1553
 
+                    context.sh(script: 'echo SXAEC1A')
                     context.sh(script: 'set')
+                    context.sh(script: 'echo SXAEC1B')
                     context.sh(script: 'pwd')
+                    context.sh(script: 'echo SXAEC1C')
                     context.sh(script: 'git config --global safe.directory /cygdrive/c/jw/workspace/build-scripts/jobs/jdk21u/windbld')
 
                     context.sh(script: 'git clean -fdx')
