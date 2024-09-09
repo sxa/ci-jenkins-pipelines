@@ -783,6 +783,8 @@ class Build {
                             flatten: true)
 
                     context.sh 'for file in $(ls workspace/target/*.tar.gz workspace/target/*.zip); do sha256sum "$file" > $file.sha256.txt ; done'
+context.println "SXAECMABF1 - sign"
+context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
 
                     writeMetadata(versionInfo, false)
                     context.archiveArtifacts artifacts: 'workspace/target/*'
@@ -1060,21 +1062,19 @@ class Build {
         context.println "SXA: battable and batted 1060 - windbld#273"
 
         def files
-        if ( allowBat ) { context.println("listArchives() invoked with allowBat = true") }
-        if ( !allowBat ) { context.println("listArchives() invoked with allowBat = false") }
-        if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE && allowBat ) {
+        if ( context.isUnix() ) {
+           files = context.sh(
+                script: '''find workspace/target/ | egrep -e '(\\.tar\\.gz|\\.zip|\\.msi|\\.pkg|\\.deb|\\.rpm|-sbom_.*\\.json)$' ''',
+                returnStdout: true,
+                returnStatus: false
+           ).trim().split('\n').toList()
+        } else {
            // The grep here removes anything that still contains "*" because nothing matched
            files = context.bat(
                 script: 'dir/b/s workspace\\target\\*.zip workspace\\target\\*.msi workspace\\target\\*.-sbom_* workspace\\target\\*.json',
                 returnStdout: true,
                 returnStatus: false
            ).trim().replaceAll('\\\\','/').replaceAll('\\r','').split('\n').toList().grep( ~/^[^\*]*$/ ) // grep needed extra script approval
-        } else {
-           files = context.sh(
-                script: '''find workspace/target/ | egrep -e '(\\.tar\\.gz|\\.zip|\\.msi|\\.pkg|\\.deb|\\.rpm|-sbom_.*\\.json)$' ''',
-                returnStdout: true,
-                returnStatus: false
-           ).trim().split('\n').toList()
         }
         context.println "listArchives: ${files}"
         return files
@@ -1350,7 +1350,7 @@ class Build {
 
             String hash
             if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
-                hash = context.sh(script: "sha256sum ${file} | cut -f1 -d' '") // .replaceAll('\n', '')
+                hash = context.bat(script: "sha256sum ${file} | cut -f1 -d' '") // .replaceAll('\n', '')
             } else {
                 hash = context.sh(script: """\
                                               if [ -x "\$(command -v shasum)" ]; then
@@ -1523,14 +1523,35 @@ class Build {
     }
 
 def buildScriptsEclipseSigner() {
+            def build_path
+            def openjdk_build_dir
+//            def openjdk_build_dir_arg
+
+           build_path = 'workspace/build/src/build'
+           openjdk_build_dir =  context.WORKSPACE + '/' + build_path
+//           openjdk_build_dir_arg = ""
+           // SXA: This doesn't seem to set correctly with 'def base_path = build_path"
+           def base_path
+           base_path = build_path
+//           if (openjdk_build_dir_arg == "") {
+//              // If not using a custom openjdk build dir, then query what autoconf created as the build sub-folder
+//              context.println 'SXA: not batable 1648 - windbld#263'
+//              base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
+//         }
+            def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
+
                                     // Should this part be under "if (enableSigner)" instead
                                     // of it being on the earlier "if" section?
                                     context.node('eclipse-codesign') {
-                                        context.println 'SXA: batable-ish 1660'
-                                        context.sh "rm -rf ${base_path}/* || true"
+                                        context.println "SXAEC: batable-ish 1660 with build_path / base_path = ${build_path} / ${base_path} (openjdk_build_dir = ${openjdk_build_dir})"
+                                        // Safety first!
+                                        if (base_path != null && !base_path.isEmpty()) {
+                                            context.sh "rm -rf ${base_path}/* || true"
+                                        }
 
                                         repoHandler.checkoutAdoptBuild(context)
-                                        printGitRepoInfo()
+// SXA - skipping as it's batOrSh and we can't allow bat here
+//                                        printGitRepoInfo()
 
                                         // Copy pre assembled binary ready for JMODs to be codesigned
                                         context.unstash 'jmods'
@@ -1606,6 +1627,7 @@ def buildScriptsEclipseSigner() {
                                             '''
                                             // groovylint-enable
                                         }
+                                        context.sh(script: "ls -l ${base_path}/**/*")
                                         context.stash name: 'signed_jmods', includes: "${base_path}/**/*"
                                     } // context.node ("eclipse-codesign") - joe thinks it matches with something else though ...
 }
@@ -1615,30 +1637,94 @@ def buildScriptsAssemble(
     filename,
     useAdoptShellScripts
 ) {
+            def build_path
+            def openjdk_build_dir
+            def openjdk_build_dir_arg
+            openjdk_build_dir_arg=""
+
+           build_path = 'workspace/build/src/build'
+           openjdk_build_dir =  context.WORKSPACE + '/' + build_path
+           // SXA: This doesn't seem to set correctly with 'def base_path = build_path"
+           def base_path
+           base_path = build_path
+           def assembleBuildArgs
                                     // Remove jmod directories to be replaced with the stash saved above
-                                    context.println 'SXA: batable 1744'
-                                    context.sh "rm -rf ${base_path}/hotspot/variant-server || true"
-                                    context.sh "rm -rf ${base_path}/support/modules_cmds || true"
-                                    context.sh "rm -rf ${base_path}/support/modules_libs || true"
+                                    context.println 'SXA: Assemble batable 1744'
+                                    batOrSh "rm -rf ${base_path}/hotspot/variant-server ${base_path}/support/modules_cmds ${base_path}/support/modules_libs"
                                     // JDK 16 + jpackage executables need to be signed as well
                                     if (buildConfig.JAVA_TO_BUILD != 'jdk11u') {
-                                        context.sh "rm -rf ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/* || true"
+                                        batOrSh "rm -rf ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
                                     }
 
+context.println "SXAEC: Unstashing signed_jmods into workspace at ${openjdk_build_dir}"
+batOrSh('pwd')
+context.bat('hostname')
+context.bat('ls -l /cygdrive/c/workspace/openjdk-build')
+//context.bat('md c:\\workspace\\openjdk-build\\workspace\\build')
+//context.bat('md c:\\workspace\\openjdk-build\\workspace\\build\\src')
+//context.bat('md c:\\workspace\\openjdk-build\\workspace\\build\\src\\build')
+context.bat('ls -l /cygdrive/c/workspace/openjdk-build/workspace/build/src/build')
+//context.bat('du -k /cygdrive/c/workspace/openjdk-build/workspace/build/src/build')
+context.bat('ls -l /cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base')
+context.bat('du -k /cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base')
+context.bat('chmod -R a+rwX  /cygdrive/c/workspace/openjdk-build/workspace/build/src/build & echo Done & exit 0')
+context.bat('echo hello world 1')
+context.bat('dir /q c:\\workspace\\openjdk-build\\workspace\\build\\src\\build')
+context.bat('echo hello world 2')
+context.bat('du -k /cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base')
                                     // Restore signed JMODs
                                     context.unstash 'signed_jmods'
+context.println "SXAEC: Unstashed signed_jmods"
+context.bat('du -k /cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base')
 
-                                    def assembleBuildArgs
                                     if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
-                                        assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image' + openjdk_build_dir_arg
+                                        assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image' // + openjdk_build_dir_arg
                                     } else {
-                                        assembleBuildArgs = '--assemble-exploded-image' + openjdk_build_dir_arg
+                                        assembleBuildArgs = '--assemble-exploded-image' // + openjdk_build_dir_arg
                                     }
                                     context.withEnv(['BUILD_ARGS=' + assembleBuildArgs]) {
+                                context.println '[CHECKOUT] Checking out to adoptium/temurin-build...'
+            def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
+                                repoHandler.checkoutAdoptBuild(context)
+                    if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) { 
+                        context.bat(script: 'bash -c "git config --global safe.directory $(cygpath ' + '\$' + '{WORKSPACE})"')
+                    }
+                                printGitRepoInfo()
                                         context.println 'Assembling the exploded image'
                                         // Call make-adopt-build-farm.sh on windows/mac to create signed tarball
                                         context.println 'SXA: probably batable 1764'
+context.println "SXAECMABF2 - Assemble"
+                                        context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
+                                        context.bat(script: "pwd")
+                                        context.sh(script: "pwd")
+//                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz-all | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
+                List<String> envVars = buildConfig.toEnvVars()
+                envVars.add("FILENAME=${filename}" as String)
+
+                // Use BUILD_REF override if specified
+                def adoptBranch = buildConfig.BUILD_REF ?: ADOPT_DEFAULTS_JSON['repository']['build_branch']
+
+                // Add platform config path so it can be used if the user doesn't have one
+                def splitAdoptUrl = ((String)ADOPT_DEFAULTS_JSON['repository']['build_url']) - ('.git').split('/')
+                // e.g. https://github.com/adoptium/temurin-build.git will produce adoptium/temurin-build
+                String userOrgRepo = "${splitAdoptUrl[splitAdoptUrl.size() - 2]}/${splitAdoptUrl[splitAdoptUrl.size() - 1]}"
+                // e.g. adoptium/temurin-build/master/build-farm/platform-specific-configurations
+                envVars.add("ADOPT_PLATFORM_CONFIG_LOCATION=${userOrgRepo}/${adoptBranch}/${ADOPT_DEFAULTS_JSON['configDirectories']['platform']}" as String)
+
+                // Execute build
+                context.withEnv(envVars) {
+                    try {
+                        context.timeout(time: buildTimeouts.BUILD_JDK_TIMEOUT, unit: 'HOURS') {
                                         context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+                        }
+                    } catch (FlowInterruptedException e) {
+                        // Set Github Commit Status
+                        if (env.JOB_NAME.contains('pr-tester')) {
+                            updateGithubCommitStatus('FAILED', 'Build FAILED')
+                        }
+                        throw new Exception("[ERROR] Build JDK timeout (${buildTimeouts.BUILD_JDK_TIMEOUT} HOURS) has been reached. Exiting...")
+                    }
+                }
                                     }
 // END
 
@@ -1685,6 +1771,10 @@ def buildScriptsAssemble(
             build_path = 'workspace/build/src/build'
             openjdk_build_dir =  context.WORKSPACE + '/' + build_path
             openjdk_build_dir_arg = ""
+
+context.println "SXAECMABF3 - buildScripts"
+context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
+
 
             if (cleanWorkspace) {
                 try {
@@ -1786,6 +1876,9 @@ def buildScriptsAssemble(
                                 context.println "SXAEC: UASS=true"
                                 context.println '[CHECKOUT] Checking out to adoptium/temurin-build...'
                                 repoHandler.checkoutAdoptBuild(context)
+context.println "SXAECMABF4 - buildScripts2"
+context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
+
                                 printGitRepoInfo()
 // START
                                 if ((buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') && buildConfig.JAVA_TO_BUILD != 'jdk8u' && enableSigner) {
@@ -1800,14 +1893,28 @@ def buildScriptsAssemble(
                                         context.println 'Building an exploded image for signing'
                                         // Call make-adopt-build-farm.sh to do initial windows/mac build
                                         // windbld#254
-                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.configANDtargetANDbuild.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
+                                        // context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.configANDtargetANDbuild.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
+//SXA1//                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-jmodprereqs.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
+                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz-all | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
                                         // context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                     }
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
                                         // If not using a custom openjdk build dir, then query what autoconf created as the build sub-folder
-                                        context.println 'SXA: not batable 1648 - windbld#263'
-                                        base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
+                                        context.println 'SXA: batable and conditionally batted 1648 - windbld#263'
+                                        
+                                        if ( context.isUnix() ) {
+                                            context.println "Setting base path via sh"
+                                            base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
+                                        } else {
+//                                            context.println "Setting base path via bat: 'ls -d ${build_path}/* | tr -d \\\\n'"
+                                            context.println "Setting fixed base_path for now on Windows"
+                                            base_path = "workspace/build/src/build/windows-x86_64-server-release"
+                                            context.bat(script: "pwd")
+                                            context.bat(script: "ls ${build_path} | tr -d '\\n'")
+                                            context.bat(script: "ls -d ${build_path}/* | tr -d '\\\\n'")
+                                            context.sh (script: "ls -d ${build_path}/* | tr -d '\\n'")
+                                        }
                                     }
                                     context.println "base build path for jmod signing = ${base_path}"
                                     context.stash name: 'jmods',
@@ -1816,6 +1923,9 @@ def buildScriptsAssemble(
                                             "${base_path}/support/modules_libs/**/*," +
                                             // JDK 16 + jpackage needs to be signed as well stash the resources folder containing the executables
                                             "${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
+context.bat('pwd')
+context.bat('hostname')
+// context.bat('du -k /cygdrive/c/workspace/openjdk-build')
 
                                     // SXAEC: eclipse-codesign woz ere
                                     
@@ -1931,8 +2041,12 @@ def buildScriptsAssemble(
                                         context.println "Failed to clean ${e}"
                                     }
                                 } else if (cleanWorkspaceBuildOutputAfter) {
+                                    if ( enableSigning ) {
+                                        context.println 'ERROR? ENABLE_SIGNER and CLEAN_WORKSPACE_AFTER_BUILD both set'
+                                    }
                                     context.println 'SXA: batable and batted 1869 windbld 266'
                                     context.println 'Cleaning workspace build output files: ' + openjdk_build_dir
+
                                     batOrSh('rm -rf ' + openjdk_build_dir + ' ' + context.WORKSPACE + '/workspace/target ' + context.WORKSPACE + '/workspace/build/devkit ' + context.WORKSPACE + '/workspace/build/straceOutput')
                                 }
                             } else {
@@ -1953,6 +2067,9 @@ def buildScriptsAssemble(
                 }
             }
         }
+context.println "SXAECMABF5 - buildScripts3"
+context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
+
     }
 
     /*
@@ -2224,6 +2341,7 @@ def buildScriptsAssemble(
                                     buildScriptsEclipseSigner()
                                     def workspace = 'C:/workspace/openjdk-build/'
                                     context.ws(workspace) {
+                                        context.println "Signing with non-default workspace location ${workspace}"
                                         context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
                                             buildScriptsAssemble(
                                                 cleanWorkspaceAfter,
