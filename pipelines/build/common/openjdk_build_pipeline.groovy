@@ -1522,6 +1522,129 @@ class Build {
         batOrSh('git rev-parse HEAD')
     }
 
+def buildScriptsEclipseSigner() {
+                                    // Should this part be under "if (enableSigner)" instead
+                                    // of it being on the earlier "if" section?
+                                    context.node('eclipse-codesign') {
+                                        context.println 'SXA: batable-ish 1660'
+                                        context.sh "rm -rf ${base_path}/* || true"
+
+                                        repoHandler.checkoutAdoptBuild(context)
+                                        printGitRepoInfo()
+
+                                        // Copy pre assembled binary ready for JMODs to be codesigned
+                                        context.unstash 'jmods'
+                                        def target_os = "${buildConfig.TARGET_OS}"
+                                        context.withEnv(['base_os='+target_os, 'base_path='+base_path]) {
+                                        context.println 'SXA: not batable 1670'
+                                            // groovylint-disable
+                                            context.sh '''
+                                                #!/bin/bash
+                                                set -eu
+                                                echo "Signing JMOD files under build path ${base_path} for base_os ${base_os}"
+                                                TMP_DIR="${base_path}/"
+                                                if [ "${base_os}" == "mac" ]; then
+                                                    ENTITLEMENTS="$WORKSPACE/entitlements.plist"
+                                                    FILES=$(find "${TMP_DIR}" -perm +111 -type f -o -name '*.dylib' -type f || find "${TMP_DIR}" -perm /111 -type f -o -name '*.dylib'  -type f)
+                                                else
+                                                    FILES=$(find "${TMP_DIR}" -type f -name '*.exe' -o -name '*.dll')
+                                                fi
+                                                for f in $FILES
+                                                do
+                                                    echo "Signing $f using Eclipse Foundation codesign service"
+                                                    dir=$(dirname "$f")
+                                                    file=$(basename "$f")
+                                                    mv "$f" "${dir}/unsigned_${file}"
+                                                    success=false
+                                                    if [ "${base_os}" == "mac" ]; then
+                                                        if ! curl --fail --silent --show-error -o "$f" -F file="@${dir}/unsigned_${file}" -F entitlements="@$ENTITLEMENTS" https://cbi.eclipse.org/macos/codesign/sign; then
+                                                            echo "curl command failed, sign of $f failed"
+                                                        else
+                                                            success=true
+                                                        fi
+                                                    else
+                                                        if ! curl --fail --silent --show-error -o "$f" -F file="@${dir}/unsigned_${file}" https://cbi.eclipse.org/authenticode/sign; then
+                                                            echo "curl command failed, sign of $f failed"
+                                                        else
+                                                            success=true
+                                                        fi
+                                                    fi
+                                                    if [ $success == false ]; then
+                                                        # Retry up to 20 times
+                                                        max_iterations=20
+                                                        iteration=1
+                                                        echo "Code Not Signed For File $f"
+                                                        while [ $iteration -le $max_iterations ] && [ $success = false ]; do
+                                                            echo $iteration Of $max_iterations
+                                                            sleep 1
+                                                            if [ "${base_os}" == "mac" ]; then
+                                                                if curl --fail --silent --show-error -o "$f" -F file="@${dir}/unsigned_${file}" -F entitlements="@$ENTITLEMENTS" https://cbi.eclipse.org/macos/codesign/sign; then
+                                                                    success=true
+                                                                fi
+                                                            else
+                                                                if curl --fail --silent --show-error -o "$f" -F file="@${dir}/unsigned_${file}" https://cbi.eclipse.org/authenticode/sign; then
+                                                                    success=true
+                                                                fi
+                                                            fi
+
+                                                            if [ $success = false ]; then
+                                                                echo "curl command failed, $f Failed Signing On Attempt $iteration"
+                                                                iteration=$((iteration+1))
+                                                                if [ $iteration -gt $max_iterations ]
+                                                                then
+                                                                    echo "Errors Encountered During Signing"
+                                                                    exit 1
+                                                                fi
+                                                            else
+                                                                echo "$f Signed OK On Attempt $iteration"
+                                                            fi
+                                                        done
+                                                    fi
+                                                    chmod --reference="${dir}/unsigned_${file}" "$f"
+                                                    rm -rf "${dir}/unsigned_${file}"
+                                                done
+                                            '''
+                                            // groovylint-enable
+                                        }
+                                        context.stash name: 'signed_jmods', includes: "${base_path}/**/*"
+                                    } // context.node ("eclipse-codesign") - joe thinks it matches with something else though ...
+}
+
+def buildScriptsAssemble(
+    cleanWorkspaceAfter,
+    filename,
+    useAdoptShellScripts
+) {
+                                    // Remove jmod directories to be replaced with the stash saved above
+                                    context.println 'SXA: batable 1744'
+                                    context.sh "rm -rf ${base_path}/hotspot/variant-server || true"
+                                    context.sh "rm -rf ${base_path}/support/modules_cmds || true"
+                                    context.sh "rm -rf ${base_path}/support/modules_libs || true"
+                                    // JDK 16 + jpackage executables need to be signed as well
+                                    if (buildConfig.JAVA_TO_BUILD != 'jdk11u') {
+                                        context.sh "rm -rf ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/* || true"
+                                    }
+
+                                    // Restore signed JMODs
+                                    context.unstash 'signed_jmods'
+
+                                    def assembleBuildArgs
+                                    if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
+                                        assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image' + openjdk_build_dir_arg
+                                    } else {
+                                        assembleBuildArgs = '--assemble-exploded-image' + openjdk_build_dir_arg
+                                    }
+                                    context.withEnv(['BUILD_ARGS=' + assembleBuildArgs]) {
+                                        context.println 'Assembling the exploded image'
+                                        // Call make-adopt-build-farm.sh on windows/mac to create signed tarball
+                                        context.println 'SXA: probably batable 1764'
+                                        context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+                                    }
+// END
+
+}
+
+
 /*
     Executed on a build node, the function checks out the repository and executes the build via ./make-adopt-build-farm.sh
     Once the build completes, it will calculate its version output, commit the first metadata writeout, and archive the build results.
@@ -1664,9 +1787,10 @@ class Build {
                                 context.println '[CHECKOUT] Checking out to adoptium/temurin-build...'
                                 repoHandler.checkoutAdoptBuild(context)
                                 printGitRepoInfo()
+// START
                                 if ((buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') && buildConfig.JAVA_TO_BUILD != 'jdk8u' && enableSigner) {
-                                    context.println "Generating exploded build, sign JMODS, and assemble build, for platform ${buildConfig.TARGET_OS} version ${buildConfig.JAVA_TO_BUILD}"
-                                    def signBuildArgs
+                                    context.println "Generating exploded build" // , sign JMODS, and assemble build, for platform ${buildConfig.TARGET_OS} version ${buildConfig.JAVA_TO_BUILD}"
+                                    def signBuildArgs // Build args for make-adopt-build-farm.sh
                                     if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
                                         signBuildArgs = env.BUILD_ARGS + ' --make-exploded-image' + openjdk_build_dir_arg
                                     } else {
@@ -1693,118 +1817,12 @@ class Build {
                                             // JDK 16 + jpackage needs to be signed as well stash the resources folder containing the executables
                                             "${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
 
-                                    // Should this part be under "if (enableSigner)" instead
-                                    // of it being on the earlier "if" section?
-                                    context.node('eclipse-codesign') {
-                                        context.println 'SXA: batable-ish 1660'
-                                        context.sh "rm -rf ${base_path}/* || true"
+                                    // SXAEC: eclipse-codesign woz ere
+                                    
+                                    // SXAEC: Avengers Assembled here (it's in a comment - it must be true)
 
-                                        repoHandler.checkoutAdoptBuild(context)
-                                        printGitRepoInfo()
-
-                                        // Copy pre assembled binary ready for JMODs to be codesigned
-                                        context.unstash 'jmods'
-                                        def target_os = "${buildConfig.TARGET_OS}"
-                                        context.withEnv(['base_os='+target_os, 'base_path='+base_path]) {
-                                        context.println 'SXA: not batable 1670'
-                                            // groovylint-disable
-                                            context.sh '''
-                                                #!/bin/bash
-                                                set -eu
-                                                echo "Signing JMOD files under build path ${base_path} for base_os ${base_os}"
-                                                TMP_DIR="${base_path}/"
-                                                if [ "${base_os}" == "mac" ]; then
-                                                    ENTITLEMENTS="$WORKSPACE/entitlements.plist"
-                                                    FILES=$(find "${TMP_DIR}" -perm +111 -type f -o -name '*.dylib' -type f || find "${TMP_DIR}" -perm /111 -type f -o -name '*.dylib'  -type f)
-                                                else
-                                                    FILES=$(find "${TMP_DIR}" -type f -name '*.exe' -o -name '*.dll')
-                                                fi
-                                                for f in $FILES
-                                                do
-                                                    echo "Signing $f using Eclipse Foundation codesign service"
-                                                    dir=$(dirname "$f")
-                                                    file=$(basename "$f")
-                                                    mv "$f" "${dir}/unsigned_${file}"
-                                                    success=false
-                                                    if [ "${base_os}" == "mac" ]; then
-                                                        if ! curl --fail --silent --show-error -o "$f" -F file="@${dir}/unsigned_${file}" -F entitlements="@$ENTITLEMENTS" https://cbi.eclipse.org/macos/codesign/sign; then
-                                                            echo "curl command failed, sign of $f failed"
-                                                        else
-                                                            success=true
-                                                        fi
-                                                    else
-                                                        if ! curl --fail --silent --show-error -o "$f" -F file="@${dir}/unsigned_${file}" https://cbi.eclipse.org/authenticode/sign; then
-                                                            echo "curl command failed, sign of $f failed"
-                                                        else
-                                                            success=true
-                                                        fi
-                                                    fi
-                                                    if [ $success == false ]; then
-                                                        # Retry up to 20 times
-                                                        max_iterations=20
-                                                        iteration=1
-                                                        echo "Code Not Signed For File $f"
-                                                        while [ $iteration -le $max_iterations ] && [ $success = false ]; do
-                                                            echo $iteration Of $max_iterations
-                                                            sleep 1
-                                                            if [ "${base_os}" == "mac" ]; then
-                                                                if curl --fail --silent --show-error -o "$f" -F file="@${dir}/unsigned_${file}" -F entitlements="@$ENTITLEMENTS" https://cbi.eclipse.org/macos/codesign/sign; then
-                                                                    success=true
-                                                                fi
-                                                            else
-                                                                if curl --fail --silent --show-error -o "$f" -F file="@${dir}/unsigned_${file}" https://cbi.eclipse.org/authenticode/sign; then
-                                                                    success=true
-                                                                fi
-                                                            fi
-
-                                                            if [ $success = false ]; then
-                                                                echo "curl command failed, $f Failed Signing On Attempt $iteration"
-                                                                iteration=$((iteration+1))
-                                                                if [ $iteration -gt $max_iterations ]
-                                                                then
-                                                                    echo "Errors Encountered During Signing"
-                                                                    exit 1
-                                                                fi
-                                                            else
-                                                                echo "$f Signed OK On Attempt $iteration"
-                                                            fi
-                                                        done
-                                                    fi
-                                                    chmod --reference="${dir}/unsigned_${file}" "$f"
-                                                    rm -rf "${dir}/unsigned_${file}"
-                                                done
-                                            '''
-                                            // groovylint-enable
-                                        }
-                                        context.stash name: 'signed_jmods', includes: "${base_path}/**/*"
-                                    } // context.node ("eclipse-codesign") - joe thinks it matches with something else though ...
                                     // } // if (ENABLE_SIGN == true)
 
-                                    // Remove jmod directories to be replaced with the stash saved above
-                                    context.println 'SXA: batable 1744'
-                                    context.sh "rm -rf ${base_path}/hotspot/variant-server || true"
-                                    context.sh "rm -rf ${base_path}/support/modules_cmds || true"
-                                    context.sh "rm -rf ${base_path}/support/modules_libs || true"
-                                    // JDK 16 + jpackage executables need to be signed as well
-                                    if (buildConfig.JAVA_TO_BUILD != 'jdk11u') {
-                                        context.sh "rm -rf ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/* || true"
-                                    }
-
-                                    // Restore signed JMODs
-                                    context.unstash 'signed_jmods'
-
-                                    def assembleBuildArgs
-                                    if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
-                                        assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image' + openjdk_build_dir_arg
-                                    } else {
-                                        assembleBuildArgs = '--assemble-exploded-image' + openjdk_build_dir_arg
-                                    }
-                                    context.withEnv(['BUILD_ARGS=' + assembleBuildArgs]) {
-                                        context.println 'Assembling the exploded image'
-                                        // Call make-adopt-build-farm.sh on windows/mac to create signed tarball
-                                        context.println 'SXA: probably batable 1764'
-                                        context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
-                                    }
                                 } else { // Not Windows/Mac JDK11+ (i.e. doesn't require signing)
                                     def buildArgs
                                     if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
@@ -2202,6 +2220,19 @@ class Build {
                                         )
                                     }
                                 }
+                                if ( enableSigner ) {
+                                    buildScriptsEclipseSigner()
+                                    def workspace = 'C:/workspace/openjdk-build/'
+                                    context.ws(workspace) {
+                                        context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
+                                            buildScriptsAssemble(
+                                                cleanWorkspaceAfter,
+                                                filename,
+                                                useAdoptShellScripts
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                         context.println "[NODE SHIFT] OUT OF DOCKER NODE (LABELNAME ${label}!)"
@@ -2230,8 +2261,16 @@ class Build {
                                         filename,
                                         useAdoptShellScripts
                                     )
+                                    if ( enableSigner ) {
+                                        buildScriptsEclipseSigner()
+                                        buildScriptsAssemble(
+                                            cleanWorkspaceAfter,
+                                            filename,
+                                            useAdoptShellScripts
+                                        )
+                                    }
                                 }
-                            } else {
+                            } else { // Non-windows, non-docker
                                 buildScripts(
                                     cleanWorkspace,
                                     cleanWorkspaceAfter,
@@ -2239,6 +2278,14 @@ class Build {
                                     filename,
                                     useAdoptShellScripts
                                 )
+                                if ( enableSigner ) {
+                                    buildScriptsEclipseSigner()
+                                    buildScriptsAssemble(
+                                        cleanWorkspaceAfter,
+                                        filename,
+                                        useAdoptShellScripts
+                                    )
+                                }
                             }
                         }
                         context.println "[NODE SHIFT] OUT OF JENKINS NODE (LABELNAME ${buildConfig.NODE_LABEL}!)"
