@@ -1895,8 +1895,8 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                         // windbld#254
                                         // context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.configANDtargetANDbuild.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
 //SXA1//                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-jmodprereqs.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
-                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz-all | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
-                                        // context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+//sxa                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz-all | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
+                                        context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                     }
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
