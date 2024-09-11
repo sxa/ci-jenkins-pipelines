@@ -1683,6 +1683,7 @@ context.bat('du -k /cygdrive/c/workspace/openjdk-build/workspace/build/src/build
                                         assembleBuildArgs = '--assemble-exploded-image' // + openjdk_build_dir_arg
                                     }
                                     context.withEnv(['BUILD_ARGS=' + assembleBuildArgs]) {
+context.println "SXAEC: Running with BUILD_ARGS = " + assembleBuildArgs
                                 context.println '[CHECKOUT] Checking out to adoptium/temurin-build...'
             def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
                                 repoHandler.checkoutAdoptBuild(context)
@@ -1696,7 +1697,7 @@ context.bat('du -k /cygdrive/c/workspace/openjdk-build/workspace/build/src/build
 context.println "SXAECMABF2 - Assemble"
                                         context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
                                         context.bat(script: "pwd")
-                                        context.sh(script: "pwd")
+//                                        context.sh(script: "pwd")
 //                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz-all | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
                 List<String> envVars = buildConfig.toEnvVars()
                 envVars.add("FILENAME=${filename}" as String)
@@ -1710,12 +1711,34 @@ context.println "SXAECMABF2 - Assemble"
                 String userOrgRepo = "${splitAdoptUrl[splitAdoptUrl.size() - 2]}/${splitAdoptUrl[splitAdoptUrl.size() - 1]}"
                 // e.g. adoptium/temurin-build/master/build-farm/platform-specific-configurations
                 envVars.add("ADOPT_PLATFORM_CONFIG_LOCATION=${userOrgRepo}/${adoptBranch}/${ADOPT_DEFAULTS_JSON['configDirectories']['platform']}" as String)
+//SXAEC: Adding this is hack - we should be in a double envVars section here
+envVars.add("BUILD_ARGS=--assemble-exploded-image" as String)
 
                 // Execute build
                 context.withEnv(envVars) {
                     try {
                         context.timeout(time: buildTimeouts.BUILD_JDK_TIMEOUT, unit: 'HOURS') {
-                                        context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+context.println "SXAEC: Calling MABF to assemble"
+context.bat(script: "sh -c env")
+//context.bat(script: 'dir /x "c:\\"')
+//context.bat(script: 'dir /x "c:\\Program Files (x86)"')
+//context.bat(script: 'dir /x "c:\\Program Files (x86)\\Microsoft Visual Studio\\2022"')
+//context.bat(script: 'dir /s c:\\workspace\\vcruntime*.dll')
+//context.bat(script: 'ls -l /cygdrive/c "/cygdrive/c/Program Files (x86)"')
+//context.bat(script: 'ls -l /cygdrive/c "/cygdrive/c/Program Files (x86)"')
+context.bat(script: 'dir /x "c:\\Program Files (x86)"')
+context.bat(script: 'dir /x "c:\\Program Files (x86)\\Microsoft Visual Studio\\2022"')
+context.bat(script: 'ls -l /cygdrive/c "/cygdrive/c/Program Files (x86)"')
+context.bat(script: 'ls -l /cygdrive/c "/cygdrive/c/Program Files (x86)" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Redist/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/bin" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC"')
+context.bat(script: 'dir /x "c:\\Program Files (x86)\\Microsoft Visual Studio\\2022"')
+context.bat(script: 'dir /x "c:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Redist\\MSVC"')
+context.bat(script: 'dir /x "c:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC"')
+context.bat(script: 'dir /x "c:\\Program Files (x86)\\Windows Kits\\10"')
+context.bat(script: 'ls -l /cygdrive/c/progra~2/micros~1/2022/buildt~1/vc/redist/msvc/1436~1.325//x64/microsoft.vc143.crt/vcruntime140.dll')
+//context.bat(script: 'dir /s c:\\workspace\\vcruntime*.dll')
+// 17:34:22  make[3]: *** No rule to make target '/cygdrive/c/progra~2/micros~1/2022/buildt~1/vc/redist/msvc/1436~1.325//x64/microsoft.vc143.crt/vcruntime140.dll', needed by '/cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base/vcruntime140.dll'.  Stop.
+                                        context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']} --assemble-exploded-image")
+context.bat(script: 'dir /s c:\\workspace\\vcruntime*.dll')
                         }
                     } catch (FlowInterruptedException e) {
                         // Set Github Commit Status
@@ -1726,6 +1749,15 @@ context.println "SXAECMABF2 - Assemble"
                     }
                 }
                                     }
+                        String versionOut
+                        if (buildConfig.BUILD_ARGS.contains('--cross-compile')) {
+                            context.println "[WARNING] Don't read faked version.txt on cross compiled build! Archiving early and running downstream job to retrieve java version..."
+                            versionOut = readCrossCompiledVersionString()
+                        } else {
+                            versionOut = context.readFile('workspace/target/metadata/version.txt')
+                        }
+                        versionInfo = parseVersionOutput(versionOut)
+                        writeMetadata(versionInfo, true)
 // END
 
 }
@@ -1896,7 +1928,18 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                         // context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.configANDtargetANDbuild.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
 //SXA1//                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-jmodprereqs.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
 //sxa                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz-all | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
+context.println "Calling mabf to build exploded image"
+context.bat(script: 'dir /x "c:\\"')
+context.bat(script: 'dir /x "c:\\Program Files (x86)\\Microsoft Visual Studio\\2022"')
+context.bat(script: 'ls -l /cygdrive/c "/cygdrive/c/Program Files (x86)"')
+context.bat(script: 'dir /x "c:\\Program Files (x86)\\Microsoft Visual Studio\\2022"')
+//context.bat(script: 'dir /s c:\\workspace\\vcruntime*.dll')
                                         context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+//                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
+context.bat(script: 'dir /s c:\\workspace\\vcruntime*.dll')
+context.println "SXAEC: Showing contents of config.status"
+context.bat(script: 'grep progra /cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/configure-support/config.status')
+// Use cached version from an attempt at the first phase only
                                     }
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
@@ -1913,7 +1956,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                             context.bat(script: "pwd")
                                             context.bat(script: "ls ${build_path} | tr -d '\\n'")
                                             context.bat(script: "ls -d ${build_path}/* | tr -d '\\\\n'")
-                                            context.sh (script: "ls -d ${build_path}/* | tr -d '\\n'")
+//                                            context.sh (script: "ls -d ${build_path}/* | tr -d '\\n'")
                                         }
                                     }
                                     context.println "base build path for jmod signing = ${base_path}"
@@ -1987,21 +2030,35 @@ context.bat('hostname')
                         }
                         throw new Exception("[ERROR] Build JDK timeout (${buildTimeouts.BUILD_JDK_TIMEOUT} HOURS) has been reached. Exiting...")
                     }
-
-                    // Run a downstream job on riscv machine that returns the java version. Otherwise, just read the version.txt
-                    String versionOut
-                    if (buildConfig.BUILD_ARGS.contains('--cross-compile')) {
-                        context.println "[WARNING] Don't read faked version.txt on cross compiled build! Archiving early and running downstream job to retrieve java version..."
-                        versionOut = readCrossCompiledVersionString()
+context.println "SXAEC: Likely problem section"
+                    if ((buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') && buildConfig.JAVA_TO_BUILD != 'jdk8u' && enableSigner) {
+                        context.println "Signing phase required - skipping metadata reading"
                     } else {
-                        versionOut = context.readFile('workspace/target/metadata/version.txt')
+context.println "SXAEC: Definite problem section :-)"
+                        // Run a downstream job on riscv machine that returns the java version. Otherwise, just read the version.txt
+                        String versionOut
+                        if (buildConfig.BUILD_ARGS.contains('--cross-compile')) {
+                            context.println "[WARNING] Don't read faked version.txt on cross compiled build! Archiving early and running downstream job to retrieve java version..."
+                            versionOut = readCrossCompiledVersionString()
+                        } else {
+                            versionOut = context.readFile('workspace/target/metadata/version.txt')
+                        }
+                        versionInfo = parseVersionOutput(versionOut)
                     }
+context.println "SXAEC: Escaped problem section"
 
-                    versionInfo = parseVersionOutput(versionOut)
                 }
+                // SXAEC: This should probably be in an enableSigner() block
+                //        or a common post step
 
-                writeMetadata(versionInfo, true)
+                if (!((buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') && buildConfig.JAVA_TO_BUILD != 'jdk8u' && enableSigner)) {
+                    writeMetadata(versionInfo, true)
+                } else {
+                    context.println "SXAEC: Skipping wriging incomplete metadata - needs to be added to second phase"
+                }
+                    
             } finally {
+            
                 // Always archive any artifacts including failed make logs..
                 try {
                     context.timeout(time: buildTimeouts.BUILD_ARCHIVE_TIMEOUT, unit: 'HOURS') {
@@ -2195,6 +2252,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                     }
 
                     if (buildConfig.DOCKER_IMAGE) {
+                        context.println "openjdk_build_pipeline: preparing to use docker image"
                         // Docker build environment
                         def label = buildConfig.NODE_LABEL + '&&dockerBuild'
                         if (buildConfig.DOCKER_NODE) {
@@ -2312,6 +2370,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                     dockerRunArg += " --userns keep-id:uid=1002,gid=1003"
                                 }
                                 if (buildConfig.TARGET_OS == 'windows') {
+                                    context.println "openjdk_build_pipeline: running exploded build in docker on Windows"
                                     def workspace = 'C:/workspace/openjdk-build/'
                                     context.echo("Switched to using non-default workspace path ${workspace}")
                                     context.ws(workspace) {
@@ -2327,6 +2386,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                         }
                                     }
                                 } else {
+                                    context.println "openjdk_build_pipeline: running initial build in docker on non-windows"
                                     context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
                                         buildScripts(
                                             cleanWorkspace,
@@ -2338,10 +2398,12 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                     }
                                 }
                                 if ( enableSigner ) {
+                                    context.println "openjdk_build_pipeline: running eclipse signing phase"
                                     buildScriptsEclipseSigner()
                                     def workspace = 'C:/workspace/openjdk-build/'
                                     context.ws(workspace) {
                                         context.println "Signing with non-default workspace location ${workspace}"
+                                    context.println "openjdk_build_pipeline: running assemble phase"
                                         context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
                                             buildScriptsAssemble(
                                                 cleanWorkspaceAfter,
@@ -2357,8 +2419,9 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
 
                     // Build the jdk outside of docker container...
                     } else {
+                        context.println "openjdk_build_pipeline: running build without docker"
                         waitForANodeToBecomeActive(buildConfig.NODE_LABEL)
-                        context.println "[NODE SHIFT] MOVING INTO JENKINS NODE MATCHING LABELNAME ${buildConfig.NODE_LABEL}..."
+                        context.println "openjdk_build_pipeline: [NODE SHIFT] MOVING INTO NON-DOCKER JENKINS NODE MATCHING LABELNAME ${buildConfig.NODE_LABEL}..."
                         context.node(buildConfig.NODE_LABEL) {
                             addNodeToBuildDescription()
                             nonDockerNodeName = context.NODE_NAME
@@ -2414,6 +2477,8 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                 if (enableSigner) {
                     try {
                         // Sign job timeout managed by Jenkins job config
+                        context.println "openjdk_build_pipeline: executing signing phase"
+
                         sign(versionInfo)
                     } catch (FlowInterruptedException e) {
                         throw new Exception("[ERROR] Sign job timeout (${buildTimeouts.SIGN_JOB_TIMEOUT} HOURS) has been reached OR the downstream sign job failed. Exiting...")
@@ -2424,6 +2489,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                 if (enableInstallers) {
                     try {
                         // Installer job timeout managed by Jenkins job config
+                        context.println "openjdk_build_pipeline: building installers"
                         buildInstaller(versionInfo)
                         if ( enableSigner) {
                             signInstaller(versionInfo)
@@ -2435,6 +2501,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                 }
                 if (!env.JOB_NAME.contains('pr-tester') && context.JENKINS_URL.contains('adopt')) {
                     try {
+                        context.println "openjdk_build_pipeline: Running GPG signing process"
                         gpgSign()
                     } catch (Exception e) {
                         context.println(e.message)
@@ -2446,6 +2513,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                     // Verify Windows and Mac Signing for Temurin
                     if (buildConfig.VARIANT == 'temurin' && enableSigner) {
                         try {
+                            context.println "openjdk_build_pipeline: Verifying signing"
                             verifySigning()
                         } catch (Exception e) {
                             context.println(e.message)
@@ -2461,7 +2529,9 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                   } else {
                     try {
                         //Only smoke tests succeed TCK and AQA tests will be triggerred.
+                        context.println "openjdk_build_pipeline: running smoke tests"
                         if (runSmokeTests() == 'SUCCESS') {
+                            context.println "openjdk_build_pipeline: smoke tests OK - running full AQA suite"
                             // Remote trigger Eclipse Temurin JCK tests
                             if (buildConfig.VARIANT == 'temurin' && enableTCK) {
                                 def platform = ''
@@ -2472,7 +2542,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                 }           
                                 if ( !(platform =='aarch64_windows') ) {
                                     if ( !(buildConfig.JAVA_TO_BUILD == 'jdk8u' && platform == 's390x_linux') ) {
-                                        context.echo "Remote trigger Eclipse Temurin AQA_Test_Pipeline job with ${platform} ${buildConfig.JAVA_TO_BUILD}"
+                                        context.echo "openjdk_build_pipeline: Remote trigger Eclipse Temurin AQA_Test_Pipeline job with ${platform} ${buildConfig.JAVA_TO_BUILD}"
                                         def remoteTargets = remoteTriggerJckTests(platform, filename)
                                         context.parallel remoteTargets
                                     }
