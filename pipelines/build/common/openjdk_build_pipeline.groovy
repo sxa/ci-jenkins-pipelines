@@ -783,8 +783,9 @@ class Build {
                             flatten: true)
 
                     context.sh 'for file in $(ls workspace/target/*.tar.gz workspace/target/*.zip); do sha256sum "$file" > $file.sha256.txt ; done'
-context.println "SXAECMABF1 - sign"
-context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
+context.println "SXAECMABF1 - sign (Not on windows)"
+// context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
+// context.sh(script: "find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls")
 
                     writeMetadata(versionInfo, false)
                     context.archiveArtifacts artifacts: 'workspace/target/*'
@@ -1721,7 +1722,24 @@ envVars.add("BUILD_ARGS=--assemble-exploded-image" as String)
         versionInfo = parseVersionOutput(versionOut)
         writeMetadata(versionInfo, true)
 // END
-
+                // Always archive any artifacts including failed make logs..
+                try {
+                    context.timeout(time: buildTimeouts.BUILD_ARCHIVE_TIMEOUT, unit: 'HOURS') {
+                        // We have already archived cross compiled artifacts, so only archive the metadata files
+                        if (buildConfig.BUILD_ARGS.contains('--cross-compile')) {
+                            context.println '[INFO] Archiving JSON Files...'
+                            context.archiveArtifacts artifacts: 'workspace/target/*.json'
+                        } else {
+                            context.archiveArtifacts artifacts: 'workspace/target/*'
+                        }
+                    }
+                } catch (FlowInterruptedException e) {
+                    // Set Github Commit Status
+                    if (env.JOB_NAME.contains('pr-tester')) {
+                        updateGithubCommitStatus('FAILED', 'Build FAILED')
+                    }
+                    throw new Exception("[ERROR] Build archive timeout (${buildTimeouts.BUILD_ARCHIVE_TIMEOUT} HOURS) has been reached. Exiting...")
+                }
 }
 
 
