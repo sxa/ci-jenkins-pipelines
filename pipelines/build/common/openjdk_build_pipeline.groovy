@@ -1701,7 +1701,7 @@ envVars.add("BUILD_ARGS=--assemble-exploded-image" as String)
                         // Running ls -l here generates the shortname links required
                         // by the build and referenced in the config.status file 
                         context.bat(script: 'ls -l /cygdrive/c "/cygdrive/c/Program Files (x86)" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Redist/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/bin" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/include" "/cygdrive/c/Program Files (x86)/Windows Kits/10/lib"')
-                        context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']} --assemble-exploded-image")
+                        batOrSh("bash ${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']} --assemble-exploded-image")
                     }
                 } catch (FlowInterruptedException e) {
                     // Set Github Commit Status
@@ -1899,7 +1899,7 @@ envVars.add("BUILD_ARGS=--assemble-exploded-image" as String)
                                         // Call make-adopt-build-farm.sh to do initial windows/mac build
                                         // windbld#254
                                         context.println "SXAEC: Calling MABF to build exploded image"
-                                        context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                         // Use cached version from an attempt at the first phase only
 //                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
                                     }
@@ -1944,9 +1944,9 @@ envVars.add("BUILD_ARGS=--assemble-exploded-image" as String)
                                         context.println 'SXA: probably batable 1775'
                                         // Call make-adopt-build-farm.sh to do one-step build (i.e. not signed)
                                         // and when USEW_ADOPT_SHELL_SCRIPTS=false
-//                                      batOrSh("./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+                                      batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
 //                                        context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
-                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
+                                        // context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
                                     }
                                 }
                                 context.println '[CHECKOUT] Reverting pre-build adoptium/temurin-build checkout...'
@@ -1972,7 +1972,7 @@ envVars.add("BUILD_ARGS=--assemble-exploded-image" as String)
                                 context.withEnv(['BUILD_ARGS=' + buildArgs]) {
                                     context.println 'SXA: probably batable 1783'
                                     // Call make-adopt-build-farm.sh when USE_ADOPT_SHELL_SCRIPTS==false
-                                    context.sh(script: "./${DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+                                    batOrSh("bash ./${DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
 //                                    context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
                                 }
                                 context.println '[CHECKOUT] Reverting pre-build user temurin-build checkout...'
