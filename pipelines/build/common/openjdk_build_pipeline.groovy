@@ -787,6 +787,7 @@ context.println "SXAECMABF1 - sign (Not on windows)"
 // context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
 // context.sh(script: "find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls")
 
+context.println "SXAEC: writeMetadata1"
                     writeMetadata(versionInfo, false)
                     context.archiveArtifacts artifacts: 'workspace/target/*'
                 }
@@ -912,6 +913,7 @@ context.println "SXAECMABF1 - sign (Not on windows)"
                 if (buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') {
                     try {
                         context.sh 'for file in $(ls workspace/target/*.tar.gz workspace/target/*.pkg workspace/target/*.msi); do sha256sum "$file" > $file.sha256.txt ; done'
+context.println "SXAEC: writeMetadata2"
                         writeMetadata(versionData, false)
                         context.archiveArtifacts artifacts: 'workspace/target/*'
                     } catch (e) {
@@ -939,6 +941,7 @@ context.println "SXAECMABF1 - sign (Not on windows)"
                     try {
                         signInstallerJob(versionData)
                         context.sh 'for file in $(ls workspace/target/*.tar.gz workspace/target/*.pkg workspace/target/*.msi); do sha256sum "$file" > $file.sha256.txt ; done'
+context.println "SXAEC: writeMetadata3"
                         writeMetadata(versionData, false)
                         context.archiveArtifacts artifacts: 'workspace/target/*'
                     } catch (e) {
@@ -1348,11 +1351,11 @@ context.println "SXAECMABF1 - sign (Not on windows)"
                 type = 'sbom'
             }
             context.println "(writeMetaData) Potentially battable assuming sha256sum on windows 1340 windbld#388 - No - fails #479"
+            batOrSh('hostname')
 
             String hash
-            if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
-                hash = context.bat(script: "sha256sum ${file} | cut -f1 -d' '") // .replaceAll('\n', '')
-            } else {
+            if ( context.isUnix() ) {
+                context.println "Non-windows non-docker detected - running sh"
                 hash = context.sh(script: """\
                                               if [ -x "\$(command -v shasum)" ]; then
                                                 (shasum -a 256 | cut -f1 -d' ') <$file
@@ -1360,7 +1363,9 @@ context.println "SXAECMABF1 - sign (Not on windows)"
                                                 sha256sum $file | cut -f1 -d' '
                                               fi
                                             """.stripIndent(), returnStdout: true, returnStatus: false).replaceAll('\n', '')
-
+            } else {
+                context.println "Windows detected - running bat"
+                hash = context.bat(script: "sha256sum ${file} | cut -f1 -d' '") // .replaceAll('\n', '')
             }
 
             data.binary_type = type
@@ -1661,9 +1666,11 @@ def buildScriptsAssemble(
         // Restore signed JMODs
         context.unstash 'signed_jmods'
         if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
-            assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image' // + openjdk_build_dir_arg
+            context.println "env.BUILD_ARGS had something"
+            assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image --create-jre-image' // + openjdk_build_dir_arg
         } else {
-            assembleBuildArgs = '--assemble-exploded-image' // + openjdk_build_dir_arg
+            context.println "env.BUILD_ARGS was empty"
+            assembleBuildArgs = '--assemble-exploded-image --create-jre-image' // + openjdk_build_dir_arg
         }
         context.withEnv(['BUILD_ARGS=' + assembleBuildArgs]) {
             context.println "SXAEC: Running with BUILD_ARGS = " + assembleBuildArgs
@@ -1720,16 +1727,23 @@ envVars.add("BUILD_ARGS=--assemble-exploded-image" as String)
             versionOut = context.readFile('workspace/target/metadata/version.txt')
         }
         versionInfo = parseVersionOutput(versionOut)
+context.println "SXAEC: writeMetadata4"
         writeMetadata(versionInfo, true)
+context.bat(script: "sh -c 'find /cygdrive/c/workspace -name *.zip'")
+context.bat(script: "sh -c 'ls -l find /cygdrive/c/workspace -name *.zip'")
 // END
                 // Always archive any artifacts including failed make logs..
+context.println "SXAEC: writeMetadata4.1"
                 try {
                     context.timeout(time: buildTimeouts.BUILD_ARCHIVE_TIMEOUT, unit: 'HOURS') {
                         // We have already archived cross compiled artifacts, so only archive the metadata files
                         if (buildConfig.BUILD_ARGS.contains('--cross-compile')) {
+context.println "SXAEC: writeMetadata4.3"
                             context.println '[INFO] Archiving JSON Files...'
                             context.archiveArtifacts artifacts: 'workspace/target/*.json'
                         } else {
+context.println "SXAEC: writeMetadata4.4"
+
                             context.archiveArtifacts artifacts: 'workspace/target/*'
                         }
                     }
@@ -1740,6 +1754,8 @@ envVars.add("BUILD_ARGS=--assemble-exploded-image" as String)
                     }
                     throw new Exception("[ERROR] Build archive timeout (${buildTimeouts.BUILD_ARCHIVE_TIMEOUT} HOURS) has been reached. Exiting...")
                 }
+                context.println "SXAEC: writeMetadata4.5"
+
 }
 
 
@@ -1899,9 +1915,9 @@ envVars.add("BUILD_ARGS=--assemble-exploded-image" as String)
                                         // Call make-adopt-build-farm.sh to do initial windows/mac build
                                         // windbld#254
                                         context.println "SXAEC: Calling MABF to build exploded image"
-                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+//                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                         // Use cached version from an attempt at the first phase only
-//                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
+                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
                                     }
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
@@ -2009,6 +2025,7 @@ context.println "SXAEC: Escaped problem section"
                 //        or a common post step
 
                 if (!((buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') && buildConfig.JAVA_TO_BUILD != 'jdk8u' && enableSigner)) {
+context.println "SXAEC: writeMetadata5"
                     writeMetadata(versionInfo, true)
                 } else {
                     context.println "SXAEC: Skipping wriging incomplete metadata - needs to be added to second phase"
@@ -2360,8 +2377,9 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                     def workspace = 'C:/workspace/openjdk-build/'
                                     context.ws(workspace) {
                                         context.println "Signing with non-default workspace location ${workspace}"
-                                    context.println "openjdk_build_pipeline: running assemble phase"
+                                    context.println "openjdk_build_pipeline: running assemble phase (invocation 1)"
                                         context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
+                                            
                                             buildScriptsAssemble(
                                                 cleanWorkspaceAfter,
                                                 filename,
@@ -2401,6 +2419,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                     )
                                     if ( enableSigner ) {
                                         buildScriptsEclipseSigner()
+                                        context.println "openjdk_build_pipeline: running assemble phase (invocation 2)"
                                         buildScriptsAssemble(
                                             cleanWorkspaceAfter,
                                             filename,
@@ -2418,6 +2437,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                 )
                                 if ( enableSigner ) {
                                     buildScriptsEclipseSigner()
+                                    context.println "openjdk_build_pipeline: running assemble phase (invocation 3)"
                                     buildScriptsAssemble(
                                         cleanWorkspaceAfter,
                                         filename,
