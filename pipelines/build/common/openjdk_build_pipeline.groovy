@@ -908,7 +908,6 @@ class Build {
                 if (buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') {
                     try {
                         context.sh 'for file in $(ls workspace/target/*.tar.gz workspace/target/*.pkg workspace/target/*.msi); do sha256sum "$file" > $file.sha256.txt ; done'
-context.println "SXAEC: writeMetadata2"
                         writeMetadata(versionData, false)
                         context.archiveArtifacts artifacts: 'workspace/target/*'
                     } catch (e) {
@@ -936,7 +935,6 @@ context.println "SXAEC: writeMetadata2"
                     try {
                         signInstallerJob(versionData)
                         context.sh 'for file in $(ls workspace/target/*.tar.gz workspace/target/*.pkg workspace/target/*.msi); do sha256sum "$file" > $file.sha256.txt ; done'
-context.println "SXAEC: writeMetadata3"
                         writeMetadata(versionData, false)
                         context.archiveArtifacts artifacts: 'workspace/target/*'
                     } catch (e) {
@@ -1655,8 +1653,8 @@ def buildScriptsAssemble(
         batOrSh "rm -rf ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
     }
     context.stage('assemble') {
-        // SXAEC: Todo: Remove or if-bound this:
         if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) { 
+            // SXAC: Still TBC on this to determine if something fails without it
             context.bat('chmod -R a+rwX /cygdrive/c/workspace/openjdk-build/workspace/build/src/build & echo Done & exit 0')
         }
         // Restore signed JMODs
@@ -1679,22 +1677,21 @@ def buildScriptsAssemble(
         String userOrgRepo = "${splitAdoptUrl[splitAdoptUrl.size() - 2]}/${splitAdoptUrl[splitAdoptUrl.size() - 1]}"
         // e.g. adoptium/temurin-build/master/build-farm/platform-specific-configurations
         envVars.add("ADOPT_PLATFORM_CONFIG_LOCATION=${userOrgRepo}/${adoptBranch}/${ADOPT_DEFAULTS_JSON['configDirectories']['platform']}" as String)
+        envVars.add("PATH=c:\\SXAEC;c:\\cygwin64\\bin;c:\\Windows\\System32;c:\\windows;c:\\Windows\\System32\\WindowsPowershell\\v1.0;c:\\Program Files\\Git\\bin:c:\\apache-ant\\apache-ant-1.10.5\\bin" as String)
 //        context.println env.BUILD_ARGS
 //        envVars.add("BUILD_ARGS=${assembleBuildArgs}")
         context.withEnv(envVars) {
 //        context.println env.BUILD_ARGS
           if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
-            context.println "SXAEC: Adding " + env.BUILD_ARGS
+            context.println "SXAEC: Adding " + env.BUILD_ARGS + " before starting secondary env context"
             assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image' + openjdk_build_dir_arg
           } else {
-            context.println "SXAEC: Not adding additional build args"
+            context.println "SXAEC: Not adding additional build args before starting secondary env context"
             assembleBuildArgs = '--assemble-exploded-image' + openjdk_build_dir_arg
           }
           context.withEnv(['BUILD_ARGS=' + assembleBuildArgs]) {
-            context.println "SXAEC: Running with BUILD_ARGS = " + assembleBuildArgs
+            context.println "SXAEC: Running with BUILD_ARGS = " + env.BUILD_ARGS
             context.println '[CHECKOUT] Checking out to adoptium/temurin-build...'
-            context.println("SXAECENV1")
-            batOrSh("sh -c env")
             def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
             repoHandler.checkoutAdoptBuild(context)
             if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) { 
@@ -1703,19 +1700,16 @@ def buildScriptsAssemble(
             printGitRepoInfo()
             context.println 'openjdk_build_pipeline.groovy: Assembling the exploded image'
             // Call make-adopt-build-farm.sh on windows/mac to create signed tarball
-            context.println("SXAECENV2")
-            batOrSh("sh -c env")
             try {
                 context.timeout(time: buildTimeouts.BUILD_JDK_TIMEOUT, unit: 'HOURS') {
-                    context.println "openjdk_build_pipeline: calling MABF to assemble"
+                    context.println "openjdk_build_pipeline: calling MABF to assemble on win/mac JDK11+"
                     // SXAEC: Running ls -l here generates the shortname links required
-                    // by the build and referenced in the config.status file 
+                    // by the build and create paths referenced in the config.status file 
                     if ( !context.isUnix() ) {
                         context.bat(script: 'ls -l /cygdrive/c "/cygdrive/c/Program Files (x86)" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Redist/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/bin" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/include" "/cygdrive/c/Program Files (x86)/Windows Kits/10/lib"')
                     }
+                    batOrSh("env")
                     batOrSh("bash ${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']} --assemble-exploded-image")
-                    // context.println "SXAEC: Using cached assemble phase"
-                    // context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase2+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
                 }
             } catch (FlowInterruptedException e) {
                 // Set Github Commit Status
@@ -1734,7 +1728,6 @@ def buildScriptsAssemble(
             versionOut = context.readFile('workspace/target/metadata/version.txt')
         }
         versionInfo = parseVersionOutput(versionOut)
-        context.println "SXAEC: writeMetadata4"
         writeMetadata(versionInfo, true)
 // END
         // Always archive any artifacts including failed make logs..
@@ -1840,6 +1833,7 @@ def buildScriptsAssemble(
                             batOrSh('rm -rf ' + openjdk_build_dir)
             batOrSh('ls -l ' + context.WORKSPACE + '/workspace/target || true')
             context.println 'SXAEC: Clearing output artefacts to avoid duplicates being passed to the installer #680'
+            // SXAEC: This was to handle using none of the clean options when extracting tarballs ...
             batOrSh('rm -rf ' + context.WORKSPACE + '/workspace/target/*')
                         } else {
                             context.println 'Warning: Unable to remove workspace openjdk build directory as context.WORKSPACE is null/empty'
@@ -1897,9 +1891,7 @@ def buildScriptsAssemble(
                             if (env.JOB_NAME.contains('pr-tester')) {
                                 updateGithubCommitStatus('PENDING', 'Build Started')
                             }
-                            context.println "SXAEC: Before UASS"
                             if (useAdoptShellScripts) {
-                                context.println "SXAEC: UASS=true"
                                 context.println '[CHECKOUT] Checking out to adoptium/temurin-build...'
                                 repoHandler.checkoutAdoptBuild(context)
                                 printGitRepoInfo()
@@ -1916,7 +1908,7 @@ def buildScriptsAssemble(
                                         context.println 'Building an exploded image for signing'
                                         // Call make-adopt-build-farm.sh to do initial windows/mac build
                                         // windbld#254
-                                        context.println "SXAEC: Calling MABF to build exploded image"
+                                        context.println "openjdk_build_pipeline: Calling MABF on win/mac to build exploded image"
 //                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                         // Use cached version from an attempt at the first phase only
                                         context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xzf -'")
@@ -1932,9 +1924,6 @@ def buildScriptsAssemble(
                                         } else {
                                             context.println "Setting fixed base_path for now on Windows"
                                             base_path = "workspace/build/src/build/windows-x86_64-server-release"
-                                            context.bat(script: "pwd")
-                                            context.bat(script: "ls ${build_path} | tr -d '\\n'")
-                                            context.bat(script: "ls -d ${build_path}/* | tr -d '\\\\n'")
                                         }
                                     }
                                     context.println "base build path for jmod signing = ${base_path}"
@@ -1945,13 +1934,9 @@ def buildScriptsAssemble(
                                             // JDK 16 + jpackage needs to be signed as well stash the resources folder containing the executables
                                             "${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
 
-                                    // SXAEC: eclipse-codesign woz ere
-                                    
-                                    // SXAEC: Avengers Assembled here (it's in a comment - it must be true)
+                                    // SXAEC: eclipse-codesign and assemble sections were inlined here
 
-                                    // } // if (ENABLE_SIGN == true)
-
-                                } else { // Not Windows/Mac JDK11+ (i.e. doesn't require signing)
+                                } else { // Not Windows/Mac JDK11+ (i.e. doesn't require internal signing)
                                     def buildArgs
                                     if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
                                         buildArgs = env.BUILD_ARGS + openjdk_build_dir_arg
@@ -1962,9 +1947,8 @@ def buildScriptsAssemble(
                                         context.println 'SXA: probably batable 1775'
                                         // Call make-adopt-build-farm.sh to do one-step build (i.e. not signed)
                                         // and when USEW_ADOPT_SHELL_SCRIPTS=false
-                                      batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
-//                                        context.sh(script: "./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
-                                        // context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
+                                        context.println "openjdk_build_pipeline: Calling MABF when not win/mac JDK11+ to do single-pass build"
+                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                     }
                                 }
                                 context.println '[CHECKOUT] Reverting pre-build adoptium/temurin-build checkout...'
@@ -1988,8 +1972,7 @@ def buildScriptsAssemble(
                                     buildArgs = openjdk_build_dir_arg
                                 }
                                 context.withEnv(['BUILD_ARGS=' + buildArgs]) {
-                                    context.println 'SXA: probably batable 1783'
-                                    // Call make-adopt-build-farm.sh when USE_ADOPT_SHELL_SCRIPTS==false
+                                    context.println "openjdk_build_pipeline: calling MABF to do single pass build when USE_ADOPT_SHELL_SCRIPTS is false"
                                     batOrSh("bash ./${DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
 //                                    context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
                                 }
@@ -2020,14 +2003,8 @@ context.println "SXAEC: Definite problem section :-)"
                         }
                         versionInfo = parseVersionOutput(versionOut)
                     }
-context.println "SXAEC: Escaped problem section"
-
                 }
-                // SXAEC: This should probably be in an enableSigner() block
-                //        or a common post step
-
                 if (!((buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') && buildConfig.JAVA_TO_BUILD != 'jdk8u' && enableSigner)) {
-context.println "SXAEC: writeMetadata5"
                     writeMetadata(versionInfo, true)
                 } else {
                     context.println "SXAEC: Skipping writing incomplete metadata - needs to be added to second phase"
@@ -2100,9 +2077,6 @@ context.println "SXAEC: writeMetadata5"
                 }
             }
         }
-context.println "SXAECMABF5 - buildScripts3"
-context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
-
     }
 
     /*
@@ -2189,7 +2163,7 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
     Main function. This is what is executed remotely via the helper file kick_off_build.groovy, which is in turn executed by the downstream jobs.
     Running in downstream build job jdk-*-*-* called by kick_off_build.groovy
     */
-    @SuppressWarnings('unused')
+//SXAEC//    @SuppressWarnings('unused')
     def build() {
         context.timestamps {
             try {
