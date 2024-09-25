@@ -783,11 +783,6 @@ class Build {
                             flatten: true)
 
                     context.sh 'for file in $(ls workspace/target/*.tar.gz workspace/target/*.zip); do sha256sum "$file" > $file.sha256.txt ; done'
-context.println "SXAECMABF1 - sign (Not on windows)"
-// context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls'")
-// context.sh(script: "find /cygdrive/c/workspace -name make-adopt-build-farm.sh -ls")
-
-context.println "SXAEC: writeMetadata1"
                     writeMetadata(versionInfo, false)
                     context.archiveArtifacts artifacts: 'workspace/target/*'
                 }
@@ -903,7 +898,7 @@ context.println "SXAEC: writeMetadata1"
                             target: 'workspace/target/',
                             flatten: true)
                         // Check if JRE exists, if so, build another installer for it
-                        if (listArchives(false).any { it =~ /-jre/ } ) { buildWindowsInstaller(versionData, '**/OpenJDK*jre_*_windows*.zip', 'jre') }
+                        if (listArchives().any { it =~ /-jre/ } ) { buildWindowsInstaller(versionData, '**/OpenJDK*jre_*_windows*.zip', 'jre') }
                         break
                     default:
                         break
@@ -1062,8 +1057,7 @@ context.println "SXAEC: writeMetadata3"
     /*
     Lists and returns any compressed archived or sbom file contents of the top directory of the build node
     */
-    List<String> listArchives(Boolean allowBat) {
-        context.println "SXA: battable and batted 1060 - windbld#273"
+    List<String> listArchives() {
 
         def files
         if ( context.isUnix() ) {
@@ -1335,7 +1329,7 @@ context.println "SXAEC: writeMetadata3"
          * with the windows one, and sometimes not e.g.
          * windbld#473/475/476/477
          */
-        listArchives(false).each({ file ->
+        listArchives().each({ file ->
             def type = 'jdk'
             if (file.contains('-jre')) {
                 type = 'jre'
@@ -1350,9 +1344,7 @@ context.println "SXAEC: writeMetadata3"
             } else if (file.contains('-sbom')) {
                 type = 'sbom'
             }
-            context.println "(writeMetaData) Potentially battable assuming sha256sum on windows 1340 windbld#388 - No - fails #479"
-            context.println "Processing " + file
-            batOrSh('hostname')
+            context.println "(writeMetaData for " + file + ") Batable and batted assuming sha256sum on windows 1340 windbld#388 - No - fails #479"
 
             String hash
             if ( context.isUnix() ) {
@@ -1375,7 +1367,7 @@ context.println "SXAEC: writeMetadata3"
             // To save on spam, only print out the metadata the first time
             if (!metaWrittenOut && initialWrite) {
                 context.println '===METADATA OUTPUT==='
-//SXAEC//                context.println JsonOutput.prettyPrint(JsonOutput.toJson(data.asMap()))
+                context.println JsonOutput.prettyPrint(JsonOutput.toJson(data.asMap()))
                 context.println '=/=METADATA OUTPUT=/='
                 metaWrittenOut = true
             }
@@ -1385,13 +1377,6 @@ context.println "SXAEC: writeMetadata3"
             if (file.contains('sbom')) {
                 context.writeFile file: file.replace('.json', '-metadata.json'), text: JsonOutput.prettyPrint(JsonOutput.toJson(data.asMap()))
             } else {
-context.println "SXAEC: Writing ${file}.json"
-//batOrSh("ls -l")
-//batOrSh("pwd")
-///atOrSh("touch cabbages")
-///batOrSh("hostname")
-//batOrSh('ls -l workspace/target')
-//batOrSh('touch workspace/target/cabbages')
                 context.writeFile file: "${file}.json", text: JsonOutput.prettyPrint(JsonOutput.toJson(data.asMap()))
             }
         })
@@ -1529,50 +1514,49 @@ context.println "SXAEC: Writing ${file}.json"
      */
     def printGitRepoInfo() {
         context.println 'Checked out repo:'
-        context.println 'batable and batted 1487 windbld #286-288'
         batOrSh('git status')
         context.println 'Checked out HEAD commit SHA:'
         // windbld#245
         batOrSh('git rev-parse HEAD')
     }
 
-def buildScriptsEclipseSigner() {
-            def build_path
-            def openjdk_build_dir
-//            def openjdk_build_dir_arg
+    def buildScriptsEclipseSigner() {
+        def build_path
+        def openjdk_build_dir
+// openjdk_build_dir_arg unused after https://github.com/adoptium/ci-jenkins-pipelines/pull/1084
+// Ref https://adoptium.slack.com/archives/C09NW3L2J/p1725957286184479?thread_ts=1725900849.766449&cid=C09NW3L2J
+//        def openjdk_build_dir_arg
 
-           build_path = 'workspace/build/src/build'
-           openjdk_build_dir =  context.WORKSPACE + '/' + build_path
-//           openjdk_build_dir_arg = ""
+        build_path = 'workspace/build/src/build'
+        openjdk_build_dir =  context.WORKSPACE + '/' + build_path
+//        openjdk_build_dir_arg = ""
            // SXA: This doesn't seem to set correctly with 'def base_path = build_path"
-           def base_path
-           base_path = build_path
-//           if (openjdk_build_dir_arg == "") {
-//              // If not using a custom openjdk build dir, then query what autoconf created as the build sub-folder
-//              context.println 'SXA: not batable 1648 - windbld#263'
-//              base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
-//         }
-            def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
-           context.stage('bldsign') {
+        def base_path
+        base_path = build_path
+//        if (openjdk_build_dir_arg == "") {
+//            // If not using a custom openjdk build dir, then query what autoconf created as the build sub-folder
+//            context.println 'SXA: not batable 1648 - windbld#263'
+//            base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
+//        }
+        def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
+        context.stage('internal sign') {
+            // SXAEC: Should this part be under "if (enableSigner)" instead
+            // of it being on the earlier "if" section?
+            context.node('eclipse-codesign') {
+                // Safety first!
+                if (base_path != null && !base_path.isEmpty()) {
+                    context.sh "rm -rf ${base_path}/* || true"
+                }
 
-                                    // Should this part be under "if (enableSigner)" instead
-                                    // of it being on the earlier "if" section?
-                                    context.node('eclipse-codesign') {
-                                        context.println "SXAEC: batable-ish 1660 with build_path / base_path = ${build_path} / ${base_path} (openjdk_build_dir = ${openjdk_build_dir})"
-                                        // Safety first!
-                                        if (base_path != null && !base_path.isEmpty()) {
-                                            context.sh "rm -rf ${base_path}/* || true"
-                                        }
-
-                                        repoHandler.checkoutAdoptBuild(context)
+                repoHandler.checkoutAdoptBuild(context)
 // SXA - skipping as it's batOrSh and we can't allow bat here
-//                                        printGitRepoInfo()
+                printGitRepoInfo()
 
-                                        // Copy pre assembled binary ready for JMODs to be codesigned
-                                        context.unstash 'jmods'
-                                        def target_os = "${buildConfig.TARGET_OS}"
-                                        context.withEnv(['base_os='+target_os, 'base_path='+base_path]) {
-                                        context.println 'SXA: not batable 1670'
+                // Copy pre assembled binary ready for JMODs to be codesigned
+                context.unstash 'jmods'
+                def target_os = "${buildConfig.TARGET_OS}"
+                context.withEnv(['base_os='+target_os, 'base_path='+base_path]) {
+                    context.println 'SXA: not batable 1670 - runs exclusively on codesign machine'
                                             // groovylint-disable
                                             context.sh '''
                                                 #!/bin/bash
@@ -1641,11 +1625,11 @@ def buildScriptsEclipseSigner() {
                                                 done
                                             '''
                                             // groovylint-enable
-                                        }
-                                        context.sh(script: "ls -l ${base_path}/**/*")
-                                        context.stash name: 'signed_jmods', includes: "${base_path}/**/*"
-                                } // context.node ("eclipse-codesign") - joe thinks it matches with something else though ...
-                        } // context.stage
+                }
+                context.sh(script: "ls -l ${base_path}/**/*")
+                context.stash name: 'signed_jmods', includes: "${base_path}/**/*"
+            } // context.node ("eclipse-codesign") - joe thinks it matches with something else though ...
+        } // context.stage
 }
 
 def buildScriptsAssemble(
@@ -1653,98 +1637,95 @@ def buildScriptsAssemble(
     filename,
     useAdoptShellScripts
 ) {
-        def build_path
-        def openjdk_build_dir
-        def openjdk_build_dir_arg
-        openjdk_build_dir_arg=""
+    def build_path
+    def openjdk_build_dir
+    def openjdk_build_dir_arg
+    openjdk_build_dir_arg=""
 
-        build_path = 'workspace/build/src/build'
-        openjdk_build_dir =  context.WORKSPACE + '/' + build_path
-        // SXA: This doesn't seem to set correctly with 'def base_path = build_path"
-        def base_path
-        base_path = build_path
-        def assembleBuildArgs
-// SXA INDENT START
-        // Remove jmod directories to be replaced with the stash saved above
-        context.println 'SXA: Assemble batable 1744'
-        batOrSh "rm -rf ${base_path}/hotspot/variant-server ${base_path}/support/modules_cmds ${base_path}/support/modules_libs"
-        // JDK 16 + jpackage executables need to be signed as well
-        if (buildConfig.JAVA_TO_BUILD != 'jdk11u') {
-            batOrSh "rm -rf ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
+    build_path = 'workspace/build/src/build'
+    openjdk_build_dir =  context.WORKSPACE + '/' + build_path
+    // SXA: This doesn't seem to set correctly with 'def base_path = build_path"
+    def base_path
+    base_path = build_path
+    def assembleBuildArgs
+    // Remove jmod directories to be replaced with the stash saved above
+    batOrSh "rm -rf ${base_path}/hotspot/variant-server ${base_path}/support/modules_cmds ${base_path}/support/modules_libs"
+    // JDK 16 + jpackage executables need to be signed as well
+    if (buildConfig.JAVA_TO_BUILD != 'jdk11u') {
+        batOrSh "rm -rf ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
+    }
+    context.stage('assemble') {
+        // SXAEC: Todo: Remove or if-bound this:
+        if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) { 
+            context.bat('chmod -R a+rwX /cygdrive/c/workspace/openjdk-build/workspace/build/src/build & echo Done & exit 0')
         }
-        context.bat('chmod -R a+rwX  /cygdrive/c/workspace/openjdk-build/workspace/build/src/build & echo Done & exit 0')
         // Restore signed JMODs
         context.unstash 'signed_jmods'
-        if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
-            context.println "env.BUILD_ARGS had something"
-            assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image --create-jre-image' // + openjdk_build_dir_arg
-        } else {
-            context.println "env.BUILD_ARGS was empty"
-            assembleBuildArgs = '--assemble-exploded-image --create-jre-image' // + openjdk_build_dir_arg
-        }
-    context.stage('assemble') {
-// Convert IndividualBuildConfig to jenkins env variables
-List<String> envVars = buildConfig.toEnvVars()
-envVars.add("FILENAME=${filename}" as String)
-// Use BUILD_REF override if specified
-def adoptBranch = buildConfig.BUILD_REF ?: ADOPT_DEFAULTS_JSON['repository']['build_branch']
-// Add platform config path so it can be used if the user doesn't have one
-def splitAdoptUrl = ((String)ADOPT_DEFAULTS_JSON['repository']['build_url']) - ('.git').split('/')
-// e.g. https://github.com/adoptium/temurin-build.git will produce adoptium/temurin-build
-String userOrgRepo = "${splitAdoptUrl[splitAdoptUrl.size() - 2]}/${splitAdoptUrl[splitAdoptUrl.size() - 1]}"
-// e.g. adoptium/temurin-build/master/build-farm/platform-specific-configurations
-envVars.add("ADOPT_PLATFORM_CONFIG_LOCATION=${userOrgRepo}/${adoptBranch}/${ADOPT_DEFAULTS_JSON['configDirectories']['platform']}" as String)
-        context.withEnv(['BUILD_ARGS=' + assembleBuildArgs]) {
+//        if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
+//            context.println "env.BUILD_ARGS had something"
+//            assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image --create-jre-image' // + openjdk_build_dir_arg
+//        } else {
+//            context.println "env.BUILD_ARGS was empty"
+//               assembleBuildArgs = '--assemble-exploded-image --create-jre-image' // + openjdk_build_dir_arg
+//        }
+        // Convert IndividualBuildConfig to jenkins env variables
+        List<String> envVars = buildConfig.toEnvVars()
+        envVars.add("FILENAME=${filename}" as String)
+        // Use BUILD_REF override if specified
+        def adoptBranch = buildConfig.BUILD_REF ?: ADOPT_DEFAULTS_JSON['repository']['build_branch']
+        // Add platform config path so it can be used if the user doesn't have one
+        def splitAdoptUrl = ((String)ADOPT_DEFAULTS_JSON['repository']['build_url']) - ('.git').split('/')
+        // e.g. https://github.com/adoptium/temurin-build.git will produce adoptium/temurin-build
+        String userOrgRepo = "${splitAdoptUrl[splitAdoptUrl.size() - 2]}/${splitAdoptUrl[splitAdoptUrl.size() - 1]}"
+        // e.g. adoptium/temurin-build/master/build-farm/platform-specific-configurations
+        envVars.add("ADOPT_PLATFORM_CONFIG_LOCATION=${userOrgRepo}/${adoptBranch}/${ADOPT_DEFAULTS_JSON['configDirectories']['platform']}" as String)
+//        context.println env.BUILD_ARGS
+//        envVars.add("BUILD_ARGS=${assembleBuildArgs}")
+        context.withEnv(envVars) {
+//        context.println env.BUILD_ARGS
+          if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
+            context.println "SXAEC: Adding " + env.BUILD_ARGS
+            assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image' + openjdk_build_dir_arg
+          } else {
+            context.println "SXAEC: Not adding additional build args"
+            assembleBuildArgs = '--assemble-exploded-image' + openjdk_build_dir_arg
+          }
+          context.withEnv(['BUILD_ARGS=' + assembleBuildArgs]) {
             context.println "SXAEC: Running with BUILD_ARGS = " + assembleBuildArgs
             context.println '[CHECKOUT] Checking out to adoptium/temurin-build...'
+            context.println("SXAECENV1")
+            batOrSh("sh -c env")
             def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
             repoHandler.checkoutAdoptBuild(context)
             if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) { 
                 context.bat(script: 'bash -c "git config --global safe.directory $(cygpath ' + '\$' + '{WORKSPACE})"')
             }
             printGitRepoInfo()
-            context.println 'Assembling the exploded image'
+            context.println 'openjdk_build_pipeline.groovy: Assembling the exploded image'
             // Call make-adopt-build-farm.sh on windows/mac to create signed tarball
-            context.println 'SXA: probably batable 1764'
-//            context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace.tar.gz-all | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
-            /* List<String> */ envVars = buildConfig.toEnvVars()
-            envVars.add("FILENAME=${filename}" as String)
-
-            // Use BUILD_REF override if specified
-            /* def */ adoptBranch = buildConfig.BUILD_REF ?: ADOPT_DEFAULTS_JSON['repository']['build_branch']
-
-            // Add platform config path so it can be used if the user doesn't have one
-            /* def */ splitAdoptUrl = ((String)ADOPT_DEFAULTS_JSON['repository']['build_url']) - ('.git').split('/')
-            // e.g. https://github.com/adoptium/temurin-build.git will produce adoptium/temurin-build
-            /* String */ userOrgRepo = "${splitAdoptUrl[splitAdoptUrl.size() - 2]}/${splitAdoptUrl[splitAdoptUrl.size() - 1]}"
-            // e.g. adoptium/temurin-build/master/build-farm/platform-specific-configurations
-            envVars.add("ADOPT_PLATFORM_CONFIG_LOCATION=${userOrgRepo}/${adoptBranch}/${ADOPT_DEFAULTS_JSON['configDirectories']['platform']}" as String)
-//SXAEC: TODO Adding this is hack - we should be in a double envVars section here
-// create-jre-image didn't get passed through unless added here #674
-envVars.add("BUILD_ARGS=--assemble-exploded-image --create-jre-image" as String)
-
-            // Execute build
-            context.withEnv(envVars) {
-                try {
-                    context.timeout(time: buildTimeouts.BUILD_JDK_TIMEOUT, unit: 'HOURS') {
-                        context.println "SXAEC: Calling MABF to assemble"
-                        // Running ls -l here generates the shortname links required
-                        // by the build and referenced in the config.status file 
+            context.println("SXAECENV2")
+            batOrSh("sh -c env")
+            try {
+                context.timeout(time: buildTimeouts.BUILD_JDK_TIMEOUT, unit: 'HOURS') {
+                    context.println "openjdk_build_pipeline: calling MABF to assemble"
+                    // SXAEC: Running ls -l here generates the shortname links required
+                    // by the build and referenced in the config.status file 
+                    if ( !context.isUnix() ) {
                         context.bat(script: 'ls -l /cygdrive/c "/cygdrive/c/Program Files (x86)" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Redist/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/bin" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/include" "/cygdrive/c/Program Files (x86)/Windows Kits/10/lib"')
-                        context.bat(script: 'sh -c env')
-                        batOrSh("bash ${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']} --assemble-exploded-image")
-//context.println "SXAEC: Using cached assemble phase"
-//context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase2+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
                     }
-                } catch (FlowInterruptedException e) {
-                    // Set Github Commit Status
-                    if (env.JOB_NAME.contains('pr-tester')) {
-                        updateGithubCommitStatus('FAILED', 'Build FAILED')
-                    }
-                    throw new Exception("[ERROR] Build JDK timeout (${buildTimeouts.BUILD_JDK_TIMEOUT} HOURS) has been reached. Exiting...")
+                    batOrSh("bash ${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']} --assemble-exploded-image")
+                    // context.println "SXAEC: Using cached assemble phase"
+                    // context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase2+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xpzf -'")
                 }
+            } catch (FlowInterruptedException e) {
+                // Set Github Commit Status
+                if (env.JOB_NAME.contains('pr-tester')) {
+                    updateGithubCommitStatus('FAILED', 'Build FAILED')
+                }
+                throw new Exception("[ERROR] Build JDK timeout (${buildTimeouts.BUILD_JDK_TIMEOUT} HOURS) has been reached. Exiting...")
             }
-        } // context.withENV(buildargs)
+          } // context.withEnv(buildargs)
+        } // context.withEnv(envVars)
         String versionOut
         if (buildConfig.BUILD_ARGS.contains('--cross-compile')) {
             context.println "[WARNING] Don't read faked version.txt on cross compiled build! Archiving early and running downstream job to retrieve java version..."
@@ -1753,39 +1734,29 @@ envVars.add("BUILD_ARGS=--assemble-exploded-image --create-jre-image" as String)
             versionOut = context.readFile('workspace/target/metadata/version.txt')
         }
         versionInfo = parseVersionOutput(versionOut)
-context.println "SXAEC: writeMetadata4"
-batOrSh('ls -l /cygdrive/c/workspace/openjdk-build/workspace/target || true')
-batOrSh('touch /cygdrive/c/workspace/openjdk-build/workspace/target/fumblicious.json')
+        context.println "SXAEC: writeMetadata4"
         writeMetadata(versionInfo, true)
-context.println "SXAEC: writeMetadata4 returned"
-// context.bat(script: "sh -c 'find /cygdrive/c/workspace -name *.zip'")
 // END
-                // Always archive any artifacts including failed make logs..
-context.println "SXAEC: writeMetadata4.1"
-                try {
-                    context.timeout(time: buildTimeouts.BUILD_ARCHIVE_TIMEOUT, unit: 'HOURS') {
-                        // We have already archived cross compiled artifacts, so only archive the metadata files
-                        if (buildConfig.BUILD_ARGS.contains('--cross-compile')) {
-context.println "SXAEC: writeMetadata4.3"
-                            context.println '[INFO] Archiving JSON Files...'
-                            context.archiveArtifacts artifacts: 'workspace/target/*.json'
-                        } else {
-context.println "SXAEC: writeMetadata4.4"
-
-                            context.archiveArtifacts artifacts: 'workspace/target/*'
-                        }
-                    }
-                } catch (FlowInterruptedException e) {
-                    // Set Github Commit Status
-                    if (env.JOB_NAME.contains('pr-tester')) {
-                        updateGithubCommitStatus('FAILED', 'Build FAILED')
-                    }
-                    throw new Exception("[ERROR] Build archive timeout (${buildTimeouts.BUILD_ARCHIVE_TIMEOUT} HOURS) has been reached. Exiting...")
+        // Always archive any artifacts including failed make logs..
+        try {
+            context.timeout(time: buildTimeouts.BUILD_ARCHIVE_TIMEOUT, unit: 'HOURS') {
+                // We have already archived cross compiled artifacts, so only archive the metadata files
+                if (buildConfig.BUILD_ARGS.contains('--cross-compile')) {
+                    context.println '[INFO] Archiving JSON Files...'
+                    context.archiveArtifacts artifacts: 'workspace/target/*.json'
+                } else {
+                    context.archiveArtifacts artifacts: 'workspace/target/*'
                 }
-                context.println "SXAEC: writeMetadata4.5"
-   } // assemble
-}
-
+            }
+        } catch (FlowInterruptedException e) {
+            // Set Github Commit Status
+            if (env.JOB_NAME.contains('pr-tester')) {
+                updateGithubCommitStatus('FAILED', 'Build FAILED')
+            }
+            throw new Exception("[ERROR] Build archive timeout (${buildTimeouts.BUILD_ARCHIVE_TIMEOUT} HOURS) has been reached. Exiting...")
+        }
+    } // context.stage('assemble')
+} // End of buildScriptsAssemble() 1643-1765
 
 /*
     Executed on a build node, the function checks out the repository and executes the build via ./make-adopt-build-farm.sh
@@ -2408,9 +2379,8 @@ context.bat(script: "sh -c 'find /cygdrive/c/workspace -name make-adopt-build-fa
                                     def workspace = 'C:/workspace/openjdk-build/'
                                     context.ws(workspace) {
                                         context.println "Signing with non-default workspace location ${workspace}"
-                                    context.println "openjdk_build_pipeline: running assemble phase (invocation 1)"
+                                        context.println "openjdk_build_pipeline: running assemble phase (invocation 1)"
                                         context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
-                                            
                                             buildScriptsAssemble(
                                                 cleanWorkspaceAfter,
                                                 filename,
