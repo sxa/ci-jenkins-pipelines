@@ -1554,7 +1554,6 @@ class Build {
                 context.unstash 'jmods'
                 def target_os = "${buildConfig.TARGET_OS}"
                 context.withEnv(['base_os='+target_os, 'base_path='+base_path]) {
-                    context.println 'SXA: not batable 1670 - runs exclusively on codesign machine'
                                             // groovylint-disable
                                             context.sh '''
                                                 #!/bin/bash
@@ -1793,7 +1792,7 @@ def buildScriptsAssemble(
                             if (context.WORKSPACE != null && !context.WORKSPACE.isEmpty()) {
                                 context.println 'Cleaning workspace non-hidden files: ' + context.WORKSPACE + '/*'
                                 context.println 'SXA: batable 1540'
-                                context.sh(script: 'rm -rf ' + context.WORKSPACE + '/*')
+                                batOrSh(script: 'rm -rf ' + context.WORKSPACE + '/*')
                             } else {
                                 context.println 'Warning: Unable to clean workspace as context.WORKSPACE is null/empty'
                             }
@@ -1820,7 +1819,6 @@ def buildScriptsAssemble(
                     context.timeout(time: buildTimeouts.NODE_CLEAN_TIMEOUT, unit: 'HOURS') {
                         if (context.WORKSPACE != null && !context.WORKSPACE.isEmpty()) {
                             context.println 'Removing workspace openjdk build directory: ' + openjdk_build_dir
-                            context.println 'SXA: batable and batted 1568 windbld#261,262'
                             batOrSh('rm -rf ' + openjdk_build_dir)
             batOrSh('ls -l ' + context.WORKSPACE + '/workspace/target || true')
             context.println 'SXAEC: Clearing output artefacts to avoid duplicates being passed to the installer #680'
@@ -1907,8 +1905,6 @@ def buildScriptsAssemble(
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
                                         // If not using a custom openjdk build dir, then query what autoconf created as the build sub-folder
-                                        context.println 'SXA: batable and conditionally batted 1648 - windbld#263'
-                                        
                                         if ( context.isUnix() ) {
                                             context.println "Setting base path via sh"
                                             base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
@@ -1935,10 +1931,7 @@ def buildScriptsAssemble(
                                         buildArgs = openjdk_build_dir_arg
                                     }
                                     context.withEnv(['BUILD_ARGS=' + buildArgs]) {
-                                        context.println 'SXA: probably batable 1775'
-                                        // Call make-adopt-build-farm.sh to do one-step build (i.e. not signed)
-                                        // and when USEW_ADOPT_SHELL_SCRIPTS=false
-                                        context.println "openjdk_build_pipeline: Calling MABF when not win/mac JDK11+ to do single-pass build"
+                                        context.println "openjdk_build_pipeline: Calling MABF when not win/mac JDK11+ to do single-pass build and UASS=false"
                                         batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                     }
                                 }
@@ -2031,7 +2024,6 @@ context.println "SXAEC: Definite problem section :-)"
                             if (context.WORKSPACE != null && !context.WORKSPACE.isEmpty()) {
                                 if (cleanWorkspaceAfter) {
                                     context.println 'Cleaning workspace non-hidden files: ' + context.WORKSPACE + '/*'
-                                    context.println 'SXA: batable 1858'
                                     context.sh(script: 'rm -rf ' + context.WORKSPACE + '/*')
 
                                     // Clean remaining hidden files using cleanWs
@@ -2045,9 +2037,7 @@ context.println "SXAEC: Definite problem section :-)"
                                     if ( enableSigning ) {
                                         context.println 'ERROR? ENABLE_SIGNER and CLEAN_WORKSPACE_AFTER_BUILD both set'
                                     }
-                                    context.println 'SXA: batable and batted 1869 windbld 266'
                                     context.println 'Cleaning workspace build output files: ' + openjdk_build_dir
-
                                     batOrSh('rm -rf ' + openjdk_build_dir + ' ' + context.WORKSPACE + '/workspace/target ' + context.WORKSPACE + '/workspace/build/devkit ' + context.WORKSPACE + '/workspace/build/straceOutput')
                                 }
                             } else {
@@ -2213,9 +2203,9 @@ context.println "SXAEC: Definite problem section :-)"
                         context.node(label) {
                             addNodeToBuildDescription()
                             // Cannot clean workspace from inside docker container
-                            context.println 'SXA: batable and batted 2042 (rm cyclonedx-lib)'
+                            context.println 'SXAEC: batable and batted 2042 (rm cyclonedx-lib and security)'
                             if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
-                                context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib')
+                                context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security')
                             }
                             if (cleanWorkspace) {
                                 try {
