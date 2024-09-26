@@ -744,7 +744,7 @@ class Build {
         if (
             buildConfig.TARGET_OS == 'windows' || (buildConfig.TARGET_OS == 'mac')
         ) {
-            context.stage('sign') {
+            context.stage('sign zip/tgz') {
                 def filter = ''
 
                 def nodeFilter = 'eclipse-codesign'
@@ -1659,13 +1659,6 @@ def buildScriptsAssemble(
         }
         // Restore signed JMODs
         context.unstash 'signed_jmods'
-//        if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
-//            context.println "env.BUILD_ARGS had something"
-//            assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image --create-jre-image' // + openjdk_build_dir_arg
-//        } else {
-//            context.println "env.BUILD_ARGS was empty"
-//               assembleBuildArgs = '--assemble-exploded-image --create-jre-image' // + openjdk_build_dir_arg
-//        }
         // Convert IndividualBuildConfig to jenkins env variables
         List<String> envVars = buildConfig.toEnvVars()
         envVars.add("FILENAME=${filename}" as String)
@@ -1677,11 +1670,9 @@ def buildScriptsAssemble(
         String userOrgRepo = "${splitAdoptUrl[splitAdoptUrl.size() - 2]}/${splitAdoptUrl[splitAdoptUrl.size() - 1]}"
         // e.g. adoptium/temurin-build/master/build-farm/platform-specific-configurations
         envVars.add("ADOPT_PLATFORM_CONFIG_LOCATION=${userOrgRepo}/${adoptBranch}/${ADOPT_DEFAULTS_JSON['configDirectories']['platform']}" as String)
-        envVars.add("PATH=c:\\SXAEC;c:\\cygwin64\\bin;c:\\Windows\\System32;c:\\windows;c:\\Windows\\System32\\WindowsPowershell\\v1.0;c:\\Program Files\\Git\\bin:c:\\apache-ant\\apache-ant-1.10.5\\bin" as String)
-//        context.println env.BUILD_ARGS
-//        envVars.add("BUILD_ARGS=${assembleBuildArgs}")
+        // SXAEC: temporary fudge as the container doesn't have ant in the path
+        envVars.add("PATH=c:\\SXAEC;c:\\cygwin64\\bin;c:\\Windows\\System32;c:\\windows;c:\\Windows\\System32\\WindowsPowershell\\v1.0;c:\\Program Files\\Git\\bin;c:\\apache-ant\\apache-ant-1.10.5\\bin" as String)
         context.withEnv(envVars) {
-//        context.println env.BUILD_ARGS
           if (env.BUILD_ARGS != null && !env.BUILD_ARGS.isEmpty()) {
             context.println "SXAEC: Adding " + env.BUILD_ARGS + " before starting secondary env context"
             assembleBuildArgs = env.BUILD_ARGS + ' --assemble-exploded-image' + openjdk_build_dir_arg
