@@ -1625,9 +1625,7 @@ class Build {
 }
 
 def buildScriptsAssemble(
-    buildConfigEnvVars,
-    cleanWorkspaceAfter,
-    cleanWorkspaceBuildOutputAfter
+    buildConfigEnvVars
 ) {
     def build_path
 
@@ -1642,20 +1640,11 @@ def buildScriptsAssemble(
         batOrSh "rm -rf ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
     }
     context.stage('assemble') {
-        context.bat("ls -l /cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base /cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base/security")
-        context.bat("dir /q C:\\workspace\\openjdk-build\\workspace\\build\\src\\build\\windows-x86_64-server-release\\support\\modules_libs\\java.base\\security")
-        context.bat("dir /q C:\\workspace\\openjdk-build\\workspace\\build\\src\\build\\windows-x86_64-server-release\\support\\modules_libs\\java.base\\security\\public_suffix_list.dat")
-
         if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) { 
             // SXAEC: Still TBC on this to determine if something fails without it
             // Ref https://github.com/adoptium/infrastructure/issues/3723
             context.bat('chmod -R a+rwX /cygdrive/c/workspace/openjdk-build/workspace/build/src/build & echo Done & exit 0')
         }
-
-        context.bat("ls -l /cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base /cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base/security")
-        context.bat("dir /q C:\\workspace\\openjdk-build\\workspace\\build\\src\\build\\windows-x86_64-server-release\\support\\modules_libs\\java.base\\security")
-        context.bat("dir /q C:\\workspace\\openjdk-build\\workspace\\build\\src\\build\\windows-x86_64-server-release\\support\\modules_libs\\java.base\\security\\public_suffix_list.dat")
-
         // Restore signed JMODs
         context.unstash 'signed_jmods'
         // Convert IndividualBuildConfig to jenkins env variables
@@ -1680,7 +1669,7 @@ def buildScriptsAssemble(
                         context.println "openjdk_build_pipeline: calling MABF to assemble on win/mac JDK11+"
                         // SXAEC: Running ls -l here generates the shortname links required
                         // by the build and create paths referenced in the config.status file 
-                        if ( !context.isUnix()  && buildConfig.DOCKER_IMAGE ) {
+                        if ( !context.isUnix() && buildConfig.DOCKER_IMAGE ) {
                             context.bat(script: 'ls -l /cygdrive/c "/cygdrive/c/Program Files (x86)" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Redist/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/bin" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/include" "/cygdrive/c/Program Files (x86)/Windows Kits/10/lib"')
                         }
                         batOrSh("bash ${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']} --assemble-exploded-image")
@@ -1721,8 +1710,6 @@ def buildScriptsAssemble(
             }
             throw new Exception("[ERROR] Build archive timeout (${buildTimeouts.BUILD_ARCHIVE_TIMEOUT} HOURS) has been reached. Exiting...")
         }
-        postBuildWSclean(cleanWorkspaceAfter, cleanWorkspaceBuildOutputAfter)
-
     } // context.stage('assemble')
 } // End of buildScriptsAssemble() 1643-1765
 
@@ -1734,8 +1721,6 @@ def buildScriptsAssemble(
 
     def buildScripts(
         cleanWorkspace,
-        cleanWorkspaceAfter,
-        cleanWorkspaceBuildOutputAfter,
         useAdoptShellScripts,
         enableSigner,
         buildConfigEnvVars
@@ -1866,9 +1851,9 @@ def buildScriptsAssemble(
                                         // Call make-adopt-build-farm.sh to do initial windows/mac build
                                         // windbld#254
                                         context.println "openjdk_build_pipeline: Calling MABF on win/mac to build exploded image"
-//                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                         // Use cached version from an attempt at the first phase only
-                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xzf -'")
+//                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xzf -'")
                                     }
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
@@ -1981,10 +1966,6 @@ def buildScriptsAssemble(
                     throw new Exception("[ERROR] Build archive timeout (${buildTimeouts.BUILD_ARCHIVE_TIMEOUT} HOURS) has been reached. Exiting...")
                 }
 
-//                if ( !enableSigner ) { // Don't clean if we need the workspace for the later assemble phase
-//                    postBuildWSclean(cleanWorkspaceAfter, cleanWorkspaceBuildOutputAfter)
-//                }
-
                 // Set Github Commit Status
                 if (env.JOB_NAME.contains('pr-tester')) {
                     updateGithubCommitStatus('SUCCESS', 'Build PASSED')
@@ -2072,47 +2053,6 @@ def buildScriptsAssemble(
         def tmpDesc = (context.currentBuild.description) ? context.currentBuild.description + '<br>' : ''
         context.currentBuild.description = tmpDesc + "<a href=${context.JENKINS_URL}computer/${context.NODE_NAME}>${context.NODE_NAME}</a>"
     }
-
-
-def postBuildWSclean(
-    cleanWorkspaceAfter,
-    cleanWorkspaceBuildOutputAfter
-) {
-    // post-build workspace clean:
-    if (cleanWorkspaceAfter || cleanWorkspaceBuildOutputAfter) {
-        try {
-            context.timeout(time: buildTimeouts.NODE_CLEAN_TIMEOUT, unit: 'HOURS') {
-                // Note: Underlying org.apache DirectoryScanner used by cleanWs has a bug scanning where it misses files containing ".." so use rm -rf instead
-                // Issue: https://issues.jenkins.io/browse/JENKINS-64779
-                if (context.WORKSPACE != null && !context.WORKSPACE.isEmpty()) {
-                    if (cleanWorkspaceAfter) {
-                        context.println 'Cleaning workspace non-hidden files: ' + context.WORKSPACE + '/*'
-                        context.sh(script: 'rm -rf ' + context.WORKSPACE + '/*')
-
-                        // Clean remaining hidden files using cleanWs
-                        try {
-                            context.println 'Cleaning workspace hidden files using cleanWs: ' + context.WORKSPACE
-                            context.cleanWs notFailBuild: true, disableDeferredWipeout: true, deleteDirs: true
-                        } catch (e) {
-                            context.println "Failed to clean ${e}"
-                        }
-                    } else if (cleanWorkspaceBuildOutputAfter) {
-                        context.println 'openjdk_build_pipelione: Cleaning workspace build output files'
-                        batOrSh('rm -rf ' + context.WORKSPACE + '/workspace/build/src/build' + ' ' + context.WORKSPACE + '/workspace/target ' + context.WORKSPACE + '/workspace/build/devkit ' + context.WORKSPACE + '/workspace/build/straceOutput')
-                    }
-                } else {
-                    context.println 'Warning: Unable to clean workspace as context.WORKSPACE is null/empty'
-                }
-            }
-        } catch (FlowInterruptedException e) {
-            // Set Github Commit Status
-            if (env.JOB_NAME.contains('pr-tester')) {
-                updateGithubCommitStatus('FAILED', 'Build FAILED')
-            }
-            throw new Exception("[ERROR] AIX clean workspace timeout (${buildTimeouts.AIX_CLEAN_TIMEOUT} HOURS) has been reached. Exiting...")
-        }
-    }
-}
 
     /*
     Main function. This is what is executed remotely via the helper file kick_off_build.groovy, which is in turn executed by the downstream jobs.
@@ -2266,10 +2206,8 @@ def postBuildWSclean(
                                 }
 
                                 context.docker.build("build-image", "--build-arg image=${buildConfig.DOCKER_IMAGE} -f ${buildConfig.DOCKER_FILE} .").inside(buildConfig.DOCKER_ARGS) {
-                                        buildScripts(
+                                    buildScripts(
                                         cleanWorkspace,
-                                        cleanWorkspaceAfter,
-                                        cleanWorkspaceBuildOutputAfter,
                                         useAdoptShellScripts,
                                         enableSigner,
                                         envVars
@@ -2294,8 +2232,6 @@ def postBuildWSclean(
                                         context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
                                             buildScripts(
                                                 cleanWorkspace,
-                                                cleanWorkspaceAfter,
-                                                cleanWorkspaceBuildOutputAfter,
                                                 useAdoptShellScripts,
                                                 enableSigner,
                                                 envVars
@@ -2307,8 +2243,6 @@ def postBuildWSclean(
                                     context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
                                         buildScripts(
                                             cleanWorkspace,
-                                            cleanWorkspaceAfter,
-                                            cleanWorkspaceBuildOutputAfter,
                                             useAdoptShellScripts,
                                             enableSigner,
                                             envVars
@@ -2324,9 +2258,7 @@ def postBuildWSclean(
                                         context.println "openjdk_build_pipeline: running assemble phase (invocation 1)"
                                         context.docker.image(buildConfig.DOCKER_IMAGE).inside(buildConfig.DOCKER_ARGS+" "+dockerRunArg) {
                                             buildScriptsAssemble(
-                                                envVars,
-                                                cleanWorkspaceAfter,
-                                                cleanWorkspaceBuildOutputAfter
+                                                envVars
                                             )
                                         }
                                     }
@@ -2355,8 +2287,6 @@ def postBuildWSclean(
                                 context.ws(workspace) {
                                     buildScripts(
                                         cleanWorkspace,
-                                        cleanWorkspaceAfter,
-                                        cleanWorkspaceBuildOutputAfter,
                                         useAdoptShellScripts,
                                         enableSigner,
                                         envVars
@@ -2365,17 +2295,13 @@ def postBuildWSclean(
                                         buildScriptsEclipseSigner()
                                         context.println "openjdk_build_pipeline: running assemble phase (invocation 2)"
                                         buildScriptsAssemble(
-                                            envVars,
-                                            cleanWorkspaceAfter,
-                                            cleanWorkspaceBuildOutputAfter
+                                            envVars
                                         )
                                     }
                                 }
                             } else { // Non-windows, non-docker
                                 buildScripts(
                                     cleanWorkspace,
-                                    cleanWorkspaceAfter,
-                                    cleanWorkspaceBuildOutputAfter,
                                     useAdoptShellScripts,
                                     enableSigner,
                                     envVars
@@ -2384,9 +2310,7 @@ def postBuildWSclean(
                                     buildScriptsEclipseSigner()
                                     context.println "openjdk_build_pipeline: running assemble phase (invocation 3)"
                                     buildScriptsAssemble(
-                                        envVars,
-                                        cleanWorkspaceAfter,
-                                        cleanWorkspaceBuildOutputAfter
+                                        envVars
                                     )
                                 }
                             }
@@ -2395,6 +2319,49 @@ def postBuildWSclean(
                     }
                 }
 
+                // post-build workspace clean:
+                if (cleanWorkspaceAfter || cleanWorkspaceBuildOutputAfter) {
+                    try {
+                        context.timeout(time: buildTimeouts.NODE_CLEAN_TIMEOUT, unit: 'HOURS') {
+                            // Note: Underlying org.apache DirectoryScanner used by cleanWs has a bug scanning where it misses files containing ".." so use rm -rf instead
+                            // Issue: https://issues.jenkins.io/browse/JENKINS-64779
+                            context.println "SXAEC: Workspace test 1.1"
+                            if (context.WORKSPACE != null && !context.WORKSPACE.isEmpty()) {
+                                if (cleanWorkspaceAfter) {
+                            context.println "SXAEC: Workspace test 1.2"
+                                    context.println 'Cleaning workspace non-hidden files: ' + context.WORKSPACE + '/*'
+                                    context.sh(script: 'rm -rf ' + context.WORKSPACE + '/*')
+                            context.println "SXAEC: Workspace test 1.3"
+
+                                    // Clean remaining hidden files using cleanWs
+                                    try {
+                                        context.println 'Cleaning workspace hidden files using cleanWs: ' + context.WORKSPACE
+                                        context.cleanWs notFailBuild: true, disableDeferredWipeout: true, deleteDirs: true
+                                    } catch (e) {
+                                        context.println "Failed to clean ${e}"
+                                    }
+                                } else if (cleanWorkspaceBuildOutputAfter) {
+                                    if ( enableSigning ) {
+                                        context.println 'ERROR? ENABLE_SIGNER and CLEAN_WORKSPACE_AFTER_BUILD both set'
+                                    }
+                                    context.println 'Cleaning workspace build output files: ' + openjdk_build_dir
+                                    batOrSh('rm -rf ' + openjdk_build_dir + ' ' + context.WORKSPACE + '/workspace/target ' + context.WORKSPACE + '/workspace/build/devkit ' + context.WORKSPACE + '/workspace/build/straceOutput')
+                                }
+                            } else {
+                                context.println 'Warning: Unable to clean workspace as context.WORKSPACE is null/empty'
+                            }
+                        }
+                        context.println "SXAEC: Workspace test 1.4"
+
+                    } catch (FlowInterruptedException e) {
+context.println "SXAEC: Workspace test 1.5"
+                        // Set Github Commit Status
+                        if (env.JOB_NAME.contains('pr-tester')) {
+                            updateGithubCommitStatus('FAILED', 'Build FAILED')
+                        }
+                        throw new Exception("[ERROR] AIX clean workspace timeout (${buildTimeouts.AIX_CLEAN_TIMEOUT} HOURS) has been reached. Exiting...")
+                    }
+                }
 
                 // Sign and archive jobs if needed
                 if (enableSigner) {
