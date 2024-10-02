@@ -1644,6 +1644,7 @@ def buildScriptsAssemble(
         if ( buildConfig.TARGET_OS == 'windows' ) { 
             // SXAEC: Still TBC on this to determine if something fails without it
             // Ref https://github.com/adoptium/infrastructure/issues/3723
+            // Fails to unstash even in non-docker case without the chmod e.g. windbld#840
             context.bat('c:\\cygwin64\\bin\\find /cygdrive/c/workspace -name public_suffix_list.dat -ls')
             context.bat('chmod -R a+rwX /cygdrive/c/workspace/openjdk-build/workspace/build/src/build & echo Done & exit 0')
         }
@@ -1853,9 +1854,9 @@ def buildScriptsAssemble(
                                         // Call make-adopt-build-farm.sh to do initial windows/mac build
                                         // windbld#254
                                         context.println "openjdk_build_pipeline: Calling MABF on win/mac to build exploded image"
-                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+//                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                         // Use cached version from an attempt at the first phase only
-//                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xzf -'")
+                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xzf -'")
                                     }
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
