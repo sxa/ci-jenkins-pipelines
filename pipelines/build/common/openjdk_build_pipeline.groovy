@@ -1640,9 +1640,11 @@ def buildScriptsAssemble(
         batOrSh "rm -rf ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
     }
     context.stage('assemble') {
-        if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) { 
+//        if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) { 
+        if ( buildConfig.TARGET_OS == 'windows' ) { 
             // SXAEC: Still TBC on this to determine if something fails without it
             // Ref https://github.com/adoptium/infrastructure/issues/3723
+            context.bat('c:\\cygwin64\\bin\\find /cygdrive/c/workspace -name public_suffix_list.dat -ls')
             context.bat('chmod -R a+rwX /cygdrive/c/workspace/openjdk-build/workspace/build/src/build & echo Done & exit 0')
         }
         // Restore signed JMODs
@@ -2326,16 +2328,16 @@ def buildScriptsAssemble(
                             // Note: Underlying org.apache DirectoryScanner used by cleanWs has a bug scanning where it misses files containing ".." so use rm -rf instead
                             // Issue: https://issues.jenkins.io/browse/JENKINS-64779
                             context.println "SXAEC: Workspace test 1.1"
-                            if (context.WORKSPACE != null && !context.WORKSPACE.isEmpty()) {
+                            if (WORKSPACE != null && !WORKSPACE.isEmpty()) {
                                 if (cleanWorkspaceAfter) {
                             context.println "SXAEC: Workspace test 1.2"
-                                    context.println 'Cleaning workspace non-hidden files: ' + context.WORKSPACE + '/*'
-                                    context.sh(script: 'rm -rf ' + context.WORKSPACE + '/*')
+                                    context.println 'Cleaning workspace non-hidden files: ' + WORKSPACE + '/*'
+                                    context.sh(script: 'rm -rf ' + WORKSPACE + '/*')
                             context.println "SXAEC: Workspace test 1.3"
 
                                     // Clean remaining hidden files using cleanWs
                                     try {
-                                        context.println 'Cleaning workspace hidden files using cleanWs: ' + context.WORKSPACE
+                                        context.println 'Cleaning workspace hidden files using cleanWs: ' + WORKSPACE
                                         context.cleanWs notFailBuild: true, disableDeferredWipeout: true, deleteDirs: true
                                     } catch (e) {
                                         context.println "Failed to clean ${e}"
@@ -2345,7 +2347,7 @@ def buildScriptsAssemble(
                                         context.println 'ERROR? ENABLE_SIGNER and CLEAN_WORKSPACE_AFTER_BUILD both set'
                                     }
                                     context.println 'Cleaning workspace build output files: ' + openjdk_build_dir
-                                    batOrSh('rm -rf ' + openjdk_build_dir + ' ' + context.WORKSPACE + '/workspace/target ' + context.WORKSPACE + '/workspace/build/devkit ' + context.WORKSPACE + '/workspace/build/straceOutput')
+                                    batOrSh('rm -rf ' + openjdk_build_dir + ' ' + WORKSPACE + '/workspace/target ' + context.WORKSPACE + '/workspace/build/devkit ' + WORKSPACE + '/workspace/build/straceOutput')
                                 }
                             } else {
                                 context.println 'Warning: Unable to clean workspace as context.WORKSPACE is null/empty'
