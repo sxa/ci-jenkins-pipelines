@@ -1728,12 +1728,15 @@ def buildScriptsAssemble(
         enableSigner,
         buildConfigEnvVars
     ) {
+        context.println "WORKSPACEBS: " + context.WORKSPACE
+        def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
+        repoHandler.setUserDefaultsJson(context, DEFAULTS_JSON['defaultsUrl'])
+        context.println "Cabbage"
+        context.println "WORKSPACE: " + context.WORKSPACE
         return context.stage('build') {
             // Create the repo handler with the user's defaults to ensure a temurin-build checkout is not null
             // Pass actual ADOPT_DEFAULTS_JSON, and optional buildConfig CI and BUILD branch/tag overrides,
             // so that RepoHandler checks out the desired repo correctly
-            def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
-            repoHandler.setUserDefaultsJson(context, DEFAULTS_JSON['defaultsUrl'])
 
             context.println 'USER_REMOTE_CONFIGS: '
             context.println JsonOutput.toJson(USER_REMOTE_CONFIGS)
@@ -1854,9 +1857,9 @@ def buildScriptsAssemble(
                                         // Call make-adopt-build-farm.sh to do initial windows/mac build
                                         // windbld#254
                                         context.println "openjdk_build_pipeline: Calling MABF on win/mac to build exploded image"
-//                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
+                                        batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                         // Use cached version from an attempt at the first phase only
-                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xzf -'")
+//                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xzf -'")
                                     }
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
@@ -2110,6 +2113,8 @@ def buildScriptsAssemble(
                             updateGithubCommitStatus('PENDING', 'Pending')
                         }
                     }
+context.println "Cabbage 1"
+// FAILS // context.println "WORKSPACEEC1: " + context.WORKSPACE
 
                     if (buildConfig.DOCKER_IMAGE) {
                         context.println "openjdk_build_pipeline: preparing to use docker image"
@@ -2130,6 +2135,7 @@ def buildScriptsAssemble(
                              throw new Exception("[ERROR] Dubious characters in DOCKER* image or parameters: ${buildConfig.DOCKER_IMAGE} ${buildConfig.DOCKER_ARGS} - aborting");
                         }
                         context.node(label) {
+context.println "WORKSPACEEC1: " + context.WORKSPACE
                             addNodeToBuildDescription()
                             // Cannot clean workspace from inside docker container
                             context.println 'SXAEC: batable and batted 2042 (rm cyclonedx-lib and security)'
@@ -2323,32 +2329,36 @@ def buildScriptsAssemble(
                 }
 
                 // post-build workspace clean:
-                if (cleanWorkspaceAfter || cleanWorkspaceBuildOutputAfter) {
+                context.node('dockerhost-azure-win2022-x64-1') {
+                  if (cleanWorkspaceAfter || cleanWorkspaceBuildOutputAfter) {
                     try {
                         context.timeout(time: buildTimeouts.NODE_CLEAN_TIMEOUT, unit: 'HOURS') {
+/* SXA */ def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
+/* SXA */ repoHandler.setUserDefaultsJson(context, DEFAULTS_JSON['defaultsUrl'])
+
                             // Note: Underlying org.apache DirectoryScanner used by cleanWs has a bug scanning where it misses files containing ".." so use rm -rf instead
                             // Issue: https://issues.jenkins.io/browse/JENKINS-64779
-                            context.println "SXAEC: Workspace test 1.1"
-                            if (WORKSPACE != null && !WORKSPACE.isEmpty()) {
+                            context.println "SXAEC: Workspace test 1.1 (clean stage)"
+                            if (context.WORKSPACE != null && !context.WORKSPACE.isEmpty()) {
                                 if (cleanWorkspaceAfter) {
                             context.println "SXAEC: Workspace test 1.2"
-                                    context.println 'Cleaning workspace non-hidden files: ' + WORKSPACE + '/*'
-                                    context.sh(script: 'rm -rf ' + WORKSPACE + '/*')
+                                    context.println 'Cleaning workspace non-hidden files: ' + context.WORKSPACE + '/*'
+                                    context.sh(script: 'rm -rf ' + context.WORKSPACE + '/*')
                             context.println "SXAEC: Workspace test 1.3"
 
                                     // Clean remaining hidden files using cleanWs
                                     try {
-                                        context.println 'Cleaning workspace hidden files using cleanWs: ' + WORKSPACE
+                                        context.println 'Cleaning workspace hidden files using cleanWs: ' + context.WORKSPACE
                                         context.cleanWs notFailBuild: true, disableDeferredWipeout: true, deleteDirs: true
                                     } catch (e) {
                                         context.println "Failed to clean ${e}"
                                     }
                                 } else if (cleanWorkspaceBuildOutputAfter) {
-                                    if ( enableSigning ) {
+                                    if ( enableSigner ) {
                                         context.println 'ERROR? ENABLE_SIGNER and CLEAN_WORKSPACE_AFTER_BUILD both set'
                                     }
-                                    context.println 'Cleaning workspace build output files: ' + openjdk_build_dir
-                                    batOrSh('rm -rf ' + openjdk_build_dir + ' ' + WORKSPACE + '/workspace/target ' + context.WORKSPACE + '/workspace/build/devkit ' + WORKSPACE + '/workspace/build/straceOutput')
+                                    context.println 'Cleaning workspace build output files under ' + context.WORKSPACE
+                                    batOrSh('rm -rf ' + context.WORKSPACE + '/workspace/build/src/build ' + context.WORKSPACE + '/workspace/target ' + context.WORKSPACE + '/workspace/build/devkit ' + context.WORKSPACE + '/workspace/build/straceOutput')
                                 }
                             } else {
                                 context.println 'Warning: Unable to clean workspace as context.WORKSPACE is null/empty'
@@ -2365,6 +2375,7 @@ context.println "SXAEC: Workspace test 1.5"
                         throw new Exception("[ERROR] AIX clean workspace timeout (${buildTimeouts.AIX_CLEAN_TIMEOUT} HOURS) has been reached. Exiting...")
                     }
                 }
+              }
 
                 // Sign and archive jobs if needed
                 if (enableSigner) {
