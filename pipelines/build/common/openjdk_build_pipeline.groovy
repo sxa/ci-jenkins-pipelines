@@ -1641,7 +1641,7 @@ def buildScriptsAssemble(
     }
     context.stage('assemble') {
 //        if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) { 
-        if ( buildConfig.TARGET_OS == 'windows' ) { 
+        if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
             // SXAEC: Still TBC on this to determine if something fails without it
             // Ref https://github.com/adoptium/infrastructure/issues/3723
             // Fails to unstash even in non-docker case without the chmod e.g. windbld#840
@@ -1670,9 +1670,9 @@ def buildScriptsAssemble(
                 try {
                     context.timeout(time: buildTimeouts.BUILD_JDK_TIMEOUT, unit: 'HOURS') {
                         context.println "openjdk_build_pipeline: calling MABF to assemble on win/mac JDK11+"
-                        // SXAEC: Running ls -l here generates the shortname links required
-                        // by the build and create paths referenced in the config.status file 
                         if ( !context.isUnix() && buildConfig.DOCKER_IMAGE ) {
+                            // SXAEC: Running ls -l here generates the shortname links required
+                            // by the build and create paths referenced in the config.status file 
                             context.bat(script: 'ls -l /cygdrive/c "/cygdrive/c/Program Files (x86)" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Redist/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/bin" "/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC" "/cygdrive/c/Program Files (x86)/Windows Kits/10/include" "/cygdrive/c/Program Files (x86)/Windows Kits/10/lib"')
                         }
                         batOrSh("bash ${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']} --assemble-exploded-image")
@@ -1728,16 +1728,12 @@ def buildScriptsAssemble(
         enableSigner,
         buildConfigEnvVars
     ) {
-        context.println "WORKSPACEBS: " + context.WORKSPACE
+        // Create the repo handler with the user's defaults to ensure a temurin-build checkout is not null
+        // Pass actual ADOPT_DEFAULTS_JSON, and optional buildConfig CI and BUILD branch/tag overrides,
+        // so that RepoHandler checks out the desired repo correctly
         def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
         repoHandler.setUserDefaultsJson(context, DEFAULTS_JSON['defaultsUrl'])
-        context.println "Cabbage"
-        context.println "WORKSPACE: " + context.WORKSPACE
         return context.stage('build') {
-            // Create the repo handler with the user's defaults to ensure a temurin-build checkout is not null
-            // Pass actual ADOPT_DEFAULTS_JSON, and optional buildConfig CI and BUILD branch/tag overrides,
-            // so that RepoHandler checks out the desired repo correctly
-
             context.println 'USER_REMOTE_CONFIGS: '
             context.println JsonOutput.toJson(USER_REMOTE_CONFIGS)
             context.println 'DEFAULTS_JSON: '
@@ -2113,9 +2109,6 @@ def buildScriptsAssemble(
                             updateGithubCommitStatus('PENDING', 'Pending')
                         }
                     }
-context.println "Cabbage 1"
-// FAILS // context.println "WORKSPACEEC1: " + context.WORKSPACE
-
                     if (buildConfig.DOCKER_IMAGE) {
                         context.println "openjdk_build_pipeline: preparing to use docker image"
                         // Docker build environment
@@ -2135,10 +2128,8 @@ context.println "Cabbage 1"
                              throw new Exception("[ERROR] Dubious characters in DOCKER* image or parameters: ${buildConfig.DOCKER_IMAGE} ${buildConfig.DOCKER_ARGS} - aborting");
                         }
                         context.node(label) {
-context.println "WORKSPACEEC1: " + context.WORKSPACE
                             addNodeToBuildDescription()
                             // Cannot clean workspace from inside docker container
-                            context.println 'SXAEC: batable and batted 2042 (rm cyclonedx-lib and security)'
                             if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
                                 context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security')
                             }
@@ -2333,18 +2324,12 @@ context.println "WORKSPACEEC1: " + context.WORKSPACE
                   if (cleanWorkspaceAfter || cleanWorkspaceBuildOutputAfter) {
                     try {
                         context.timeout(time: buildTimeouts.NODE_CLEAN_TIMEOUT, unit: 'HOURS') {
-/* SXA */ def repoHandler = new RepoHandler(USER_REMOTE_CONFIGS, ADOPT_DEFAULTS_JSON, buildConfig.CI_REF, buildConfig.BUILD_REF)
-/* SXA */ repoHandler.setUserDefaultsJson(context, DEFAULTS_JSON['defaultsUrl'])
-
                             // Note: Underlying org.apache DirectoryScanner used by cleanWs has a bug scanning where it misses files containing ".." so use rm -rf instead
                             // Issue: https://issues.jenkins.io/browse/JENKINS-64779
-                            context.println "SXAEC: Workspace test 1.1 (clean stage)"
                             if (context.WORKSPACE != null && !context.WORKSPACE.isEmpty()) {
                                 if (cleanWorkspaceAfter) {
-                            context.println "SXAEC: Workspace test 1.2"
                                     context.println 'Cleaning workspace non-hidden files: ' + context.WORKSPACE + '/*'
                                     context.sh(script: 'rm -rf ' + context.WORKSPACE + '/*')
-                            context.println "SXAEC: Workspace test 1.3"
 
                                     // Clean remaining hidden files using cleanWs
                                     try {
@@ -2364,10 +2349,7 @@ context.println "WORKSPACEEC1: " + context.WORKSPACE
                                 context.println 'Warning: Unable to clean workspace as context.WORKSPACE is null/empty'
                             }
                         }
-                        context.println "SXAEC: Workspace test 1.4"
-
                     } catch (FlowInterruptedException e) {
-context.println "SXAEC: Workspace test 1.5"
                         // Set Github Commit Status
                         if (env.JOB_NAME.contains('pr-tester')) {
                             updateGithubCommitStatus('FAILED', 'Build FAILED')
