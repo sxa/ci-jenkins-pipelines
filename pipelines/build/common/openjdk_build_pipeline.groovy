@@ -1643,6 +1643,7 @@ class Build {
                                         base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
                                     }
                                     context.println "base build path for jmod signing = ${base_path}"
+
                                     context.stash name: 'jmods',
                                         includes: "${base_path}/hotspot/variant-server/**/*," +
                                             "${base_path}/support/modules_cmds/**/*," +
@@ -1661,6 +1662,10 @@ class Build {
                                         def target_os = "${buildConfig.TARGET_OS}"
                                         context.withEnv(['base_os='+target_os, 'base_path='+base_path]) {
                                             // groovylint-disable
+context.println "SXAEC: Searching for public_suffix_list.dat"
+context.sh('find ${base_path} -ls')
+context.println "SXAEC: Searched for public_suffix_list.dat"
+
                                             context.sh '''
                                                 #!/bin/bash
                                                 set -eu
@@ -1742,6 +1747,20 @@ class Build {
                                     }
 
                                     // Restore signed JMODs
+       if ( buildConfig.TARGET_OS == 'windows' ) {
+            // SXAEC: Still TBC on this to determine if something fails without it
+            // Ref https://github.com/adoptium/infrastructure/issues/3723
+            // Fails to unstash even in non-docker case without the chmod e.g. windbld#840
+            context.println 'SXAEC: WORKSPACE is ' + context.WORKSPACE
+            context.bat('ls -l ' + context.WORKSPACE + '/workspace')
+            context.bat('ls -l ' + context.WORKSPACE + '/workspace/build')
+            context.bat('ls -l ' + context.WORKSPACE + '/workspace/build/src')
+            context.bat('c:\\cygwin64\\bin\\find /cygdrive/c/workspace -name public_suffix_list.dat -ls')
+//            context.bat('c:\\cygwin64\\bin\\find ' + context.WORKSPACE + '/workspace/build/src/build/windows-x86_64-server-release -ls')
+            context.bat('chmod -R u+rwX ' + context.WORKSPACE + '/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base/security/public_suffix_list.dat')
+            context.bat('c:\\cygwin64\\bin\\find /cygdrive/c/workspace -name public_suffix_list.dat -ls')
+        }
+
                                     context.unstash 'signed_jmods'
 
                                     def assembleBuildArgs
