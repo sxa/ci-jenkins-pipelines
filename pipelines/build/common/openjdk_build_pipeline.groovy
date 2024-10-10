@@ -1550,10 +1550,6 @@ class Build {
                 def target_os = "${buildConfig.TARGET_OS}"
                 context.withEnv(['base_os='+target_os, 'base_path='+base_path]) {
                                             // groovylint-disable
-context.println "SXAEC: Searching for public_suffix_list.dat"
-context.sh('find ${build_path} -ls')
-context.println "SXAEC: Searched for public_suffix_list.dat"
-
                                             context.sh '''
                                                 #!/bin/bash
                                                 set -eu
@@ -1651,9 +1647,6 @@ def postBuildWSclean(
                                         context.println "Failed to clean ${e}"
                                     }
                                 } else if (cleanWorkspaceBuildOutputAfter) {
-                                    if ( enableSigner ) {
-                                        context.println 'ERROR? ENABLE_SIGNER and CLEAN_WORKSPACE_AFTER_BUILD both set'
-                                    }
                                     context.println 'Cleaning workspace build output files under ' + context.WORKSPACE
                                     batOrSh('rm -rf ' + context.WORKSPACE + '/workspace/build/src/build ' + context.WORKSPACE + '/workspace/target ' + context.WORKSPACE + '/workspace/build/devkit ' + context.WORKSPACE + '/workspace/build/straceOutput')
                                 }
@@ -1693,27 +1686,7 @@ def buildScriptsAssemble(
             // SXAEC: Still TBC on this to determine if something fails without it
             // Ref https://github.com/adoptium/infrastructure/issues/3723
             // Fails to unstash even in non-docker case without the chmod e.g. windbld#840
-            context.println 'SXAEC: WORKSPACE is ' + context.WORKSPACE
-            context.bat('ls -l ' + context.WORKSPACE + '/workspace')
-            context.bat('ls -l ' + context.WORKSPACE + '/workspace/build')
-            context.bat('ls -l ' + context.WORKSPACE + '/workspace/build/src')
-            context.bat('ls -l /cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base/security/public_suffix_list.dat')
-            context.bat('ls -l ' + context.WORKSPACE + '/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base/security/public_suffix_list.dat')
-            context.bat('ls -ld ' + context.WORKSPACE + '/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base')
-            context.bat('ls -l ' + context.WORKSPACE + '/workspace/build/src/build/windows-x86_64-server-release/support/modules_libs/java.base')
-            context.bat('c:\\cygwin64\\bin\\find /cygdrive/c/workspace -name public_suffix_list.dat -ls')
-            context.bat('c:\\cygwin64\\bin\\find /cygdrive/c/workspace -name api-ms-win-core-console-l1-1-0.dll -ls')
-            context.bat('c:\\cygwin64\\bin\\find /cygdrive/c/workspace -name windows-x86_64-server-release/support/modules_libs/java.base/security/public_suffix_list.dat -ls')
-//            context.bat('c:\\cygwin64\\bin\\find ' + context.WORKSPACE + '/cygdrive/c/workspace -name public_suffix_list.dat -ls')
-//            context.bat('c:\\cygwin64\\bin\\find ' + context.WORKSPACE + '/workspace/build/src/build/windows-x86_64-server-release -ls')
-            context.bat('chmod u+rw ' + context.WORKSPACE + '/workspace/build/src/build/windows-x86_64-server-release/jdk/lib/security/public_suffix_list.dat')
-            context.bat('c:\\cygwin64\\bin\\find /cygdrive/c/workspace -name public_suffix_list.dat -ls')
-            context.bat('chmod u+rw ' + '/cygdrive/c/workspace/openjdk-build' + '/workspace/build/src/build/windows-x86_64-server-release/jdk/lib/security/public_suffix_list.dat')
-            context.bat('chmod u+rw ' + '/cygdrive/c/workspace/openjdk-build' + '/workspace/build/src/build/windows-x86_64-server-release/jdk/lib/security/public_suffix_list.dat')
-            context.bat('c:\\cygwin64\\bin\\find /cygdrive/c/workspace -name public_suffix_list.dat -ls')
-            context.bat('c:\\cygwin64\\bin\\find C:/workspace -name public_suffix_list.dat -ls')
             context.bat('chmod -R a+rwX ' + '/cygdrive/c/workspace/openjdk-build/workspace/build/src/build/windows-x86_64-server-release')
-
         }
         // Restore signed JMODs
         context.unstash 'signed_jmods'
@@ -1781,7 +1754,6 @@ def buildScriptsAssemble(
             throw new Exception("[ERROR] Build archive timeout (${buildTimeouts.BUILD_ARCHIVE_TIMEOUT} HOURS) has been reached. Exiting...")
         }
         postBuildWSclean(cleanWorkspaceAfter, cleanWorkspaceBuildOutputAfter)
-        
     } // context.stage('assemble')
 } // End of buildScriptsAssemble() 1643-1765
 
@@ -1924,6 +1896,8 @@ def buildScriptsAssemble(
                                         // Call make-adopt-build-farm.sh to do initial windows/mac build
                                         // windbld#254
                                         context.println "openjdk_build_pipeline: Calling MABF on win/mac to build exploded image"
+def bp = batOrSh("ls -d ${build_path}/* | tr -d '\\n'")
+context.println "Build path SXAEC = " + bp
                                         batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                         // Use cached version from an attempt at the first phase only
 //                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xzf -'")
@@ -1936,30 +1910,20 @@ def buildScriptsAssemble(
                                             base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
                                         } else {
                                             context.println "Setting fixed base_path for now on Windows"
-                                            base_path = "workspace/build/src/build/windows-x86_64-server-release"
+                                            base_path = batOrSh("ls -d ${build_path}/* | tr -d '\\n'")
+//                                            base_path = context.sh(script: 'dir /b ' + build_path + '/w* | tr -d '\\n\\r'", returnStdout:true)
+//                                            base_path = "workspace/build/src/build/windows-x86_64-server-release"
                                         }
                                     }
                                     context.println "base build path for jmod signing = ${base_path}"
+                                    context.bat('c:\\cygwin64\\bin\\pwd')
+                                    context.bat('c:\\cygwin64\\bin\\find ' + base_path + '/hotspot/variant-server ${base_path}/support/modules_cmds ${base_path}/support/modules_libs ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources -type f -ls')
                                     context.stash name: 'jmods',
-// SXAEC - Windows specific 
-//                                        includes: "${base_path}/hotspot/variant-server/**/*," +
-//                                            "${base_path}/support/modules_cmds/**/*," +
-//                                            "${base_path}/support/modules_libs/**/*," +
-//                                            // JDK 16 + jpackage needs to be signed as well stash the resources folder containing the executables
-//                                            "${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
-
-                                        includes: "${base_path}/hotspot/variant-server/**/*.exe," +
-                                            "${base_path}/support/modules_cmds/**/*.exe," +
-                                            "${base_path}/support/modules_libs/**/*.exe," +
-                                            "${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*.exe" +
-                                            "${base_path}/hotspot/variant-server/**/*.dll," +
-                                            "${base_path}/support/modules_cmds/**/*.dll," +
-                                            "${base_path}/support/modules_libs/**/*.dll," +
-                                            "${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*.dll" +
-                                            "${base_path}/hotspot/variant-server/**/*.dylib," +
-                                            "${base_path}/support/modules_cmds/**/*.dylib," +
-                                            "${base_path}/support/modules_libs/**/*.dylib," +
-                                            "${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*.dylib"
+                                        includes: "${base_path}/hotspot/variant-server/**/*," +
+                                            "${base_path}/support/modules_cmds/**/*," +
+                                            "${base_path}/support/modules_libs/**/*," +
+                                            // JDK 16 + jpackage needs to be signed as well stash the resources folder containing the executables
+                                            "${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
 
                                     // SXAEC: eclipse-codesign and assemble sections were previously inlined here
 
