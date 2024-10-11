@@ -1882,15 +1882,6 @@ def buildScriptsAssemble(
                             if (useAdoptShellScripts) {
                                 context.println '[CHECKOUT] Checking out to adoptium/temurin-build...'
                                 repoHandler.checkoutAdoptBuild(context)
-context.println('CabbageS')
-context.println("CabbageD")
-def bpf = "/cygdrive/c/cygwin64/bin/bash.*"
-def bp = context.sh(script: "ls -d ${bpf} | tr -d '\\n'", returnStdout:true)
-//def bp = context.bat(script: "ls -d /cygdrive/c/cygwin64/bin/bash.exe | tr -d '\\n'", returnStdout:true)
-context.println "SXAECPATH: " + bp
-batOrSh("ls -l ${bpf}")
-batOrSh('ls -l ' + bpf)
-
                                 printGitRepoInfo()
                                 if ((buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') && buildConfig.JAVA_TO_BUILD != 'jdk8u' && enableSigner) {
                                     context.println "Generating exploded build" // , sign JMODS, and assemble build, for platform ${buildConfig.TARGET_OS} version ${buildConfig.JAVA_TO_BUILD}"
@@ -1911,18 +1902,16 @@ batOrSh('ls -l ' + bpf)
                                     }
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
-                                        // If not using a custom openjdk build dir, then query what autoconf created as the build sub-folder
-                                        if ( context.isUnix() ) {
-                                            context.println "Setting base path via sh"
+// SXAEC //                                        // If not using a custom openjdk build dir, then query what autoconf created as the build sub-folder
+//                                        if ( context.isUnix() ) {
+//                                            context.println "Setting base path via sh"
+//                                            base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
+//                                        } else {
+//                                            context.println "Setting fixed base_path for now on Windows"
                                             base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
-                                        } else {
-                                            context.println "Setting fixed base_path for now on Windows"
-                                            base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
-                                        }
+//                                        }
                                     }
                                     context.println "base build path for jmod signing = ${base_path}"
-//                                    context.bat('c:\\cygwin64\\bin\\pwd')
-//                                    context.bat('c:\\cygwin64\\bin\\find ' + base_path + '/hotspot/variant-server ${base_path}/support/modules_cmds ${base_path}/support/modules_libs ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources -type f -ls')
                                     context.stash name: 'jmods',
                                         includes: "${base_path}/hotspot/variant-server/**/*," +
                                             "${base_path}/support/modules_cmds/**/*," +
