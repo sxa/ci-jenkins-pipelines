@@ -1682,7 +1682,7 @@ def buildScriptsAssemble(
         batOrSh "rm -rf ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
     }
     context.stage('assemble') {
-        if ( buildConfig.TARGET_OS == 'windows' ) {
+        if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE) {
             // SXAEC: Still TBC on this to determine if something fails without it
             // Ref https://github.com/adoptium/infrastructure/issues/3723
             // Fails to unstash even in non-docker case without the chmod e.g. windbld#840
