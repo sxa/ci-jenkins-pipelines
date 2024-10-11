@@ -1896,28 +1896,15 @@ def buildScriptsAssemble(
                                         // Call make-adopt-build-farm.sh to do initial windows/mac build
                                         // windbld#254
                                         context.println "openjdk_build_pipeline: Calling MABF on win/mac to build exploded image"
-def bp = batOrSh("ls -d ${build_path}/* | tr -d '\\n'")
-context.println "Build path SXAEC = " + bp
                                         batOrSh("bash ./${ADOPT_DEFAULTS_JSON['scriptDirectories']['buildfarm']}")
                                         // Use cached version from an attempt at the first phase only
 //                                        context.bat(script: "bash -c 'curl https://ci.adoptium.net/userContent/windows/openjdk-cached-workspace-phase1+8.tar.gz | tar -C /cygdrive/c/workspace/openjdk-build -xzf -'")
                                     }
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
-                                        // If not using a custom openjdk build dir, then query what autoconf created as the build sub-folder
-                                        if ( context.isUnix() ) {
-                                            context.println "Setting base path via sh"
-                                            base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
-                                        } else {
-                                            context.println "Setting fixed base_path for now on Windows"
-                                            base_path = batOrSh("ls -d ${build_path}/* | tr -d '\\n'")
-//                                            base_path = context.sh(script: 'dir /b ' + build_path + '/w* | tr -d '\\n\\r'", returnStdout:true)
-//                                            base_path = "workspace/build/src/build/windows-x86_64-server-release"
-                                        }
+                                        base_path = batOrSh("ls -d ${build_path}/* | tr -d '\\n'")
                                     }
                                     context.println "base build path for jmod signing = ${base_path}"
-                                    context.bat('c:\\cygwin64\\bin\\pwd')
-                                    context.bat('c:\\cygwin64\\bin\\find ' + base_path + '/hotspot/variant-server ${base_path}/support/modules_cmds ${base_path}/support/modules_libs ${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources -type f -ls')
                                     context.stash name: 'jmods',
                                         includes: "${base_path}/hotspot/variant-server/**/*," +
                                             "${base_path}/support/modules_cmds/**/*," +
