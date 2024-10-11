@@ -1875,6 +1875,13 @@ def buildScriptsAssemble(
                 context.withEnv(buildConfigEnvVars) {
                     try {
                         context.timeout(time: buildTimeouts.BUILD_JDK_TIMEOUT, unit: 'HOURS') {
+def bp = context.sh(script: "ls -d /cygdrive/c/cygwin64/bin/bash.* | tr -d '\\n'", returnStdout:true)
+context.println "bp from shell = " + bp
+// def bps = context.bat(script: "ls -d /cygdrive/c/cygwin64/bin/bash.* | tr -d '\\n'", returnStdout:true)
+//def bps = context.bat(script: "@ls -d /cygdrive/c/cygwin64/bin/bash.* | tr -d '\\n'".trim(), returnStdout:true)
+def bps = context.bat(script: "@ls -d /cygdrive/c/cygwin64/bin/bash.*", returnStdout:true).trim()
+context.println "bp from batch = " + bps
+context.bat("ls -l ${bps}")
                             // Set Github Commit Status
                             if (env.JOB_NAME.contains('pr-tester')) {
                                 updateGithubCommitStatus('PENDING', 'Build Started')
@@ -1902,14 +1909,14 @@ def buildScriptsAssemble(
                                     }
                                     def base_path = build_path
                                     if (openjdk_build_dir_arg == "") {
-// SXAEC //                                        // If not using a custom openjdk build dir, then query what autoconf created as the build sub-folder
-//                                        if ( context.isUnix() ) {
-//                                            context.println "Setting base path via sh"
-//                                            base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
-//                                        } else {
-//                                            context.println "Setting fixed base_path for now on Windows"
-                                            base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true)
-//                                        }
+//                                        // If not using a custom openjdk build dir, then query what autoconf created as the build sub-folder
+                                        if ( context.isUnix() ) {
+                                            context.println "Setting base path via sh"
+                                            base_path = context.sh(script: "ls -d ${build_path}/* | tr -d '\\n'", returnStdout:true).trim()
+                                        } else {
+                                            context.println "Setting fixed base_path for now on Windows"
+                                            base_path = context.bat(script: "@ls -d /cygdrive/c/cygwin64/bin/bash.*".trim(), returnStdout:true)
+                                        }
                                     }
                                     context.println "base build path for jmod signing = ${base_path}"
                                     context.stash name: 'jmods',
