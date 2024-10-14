@@ -1748,7 +1748,7 @@ def buildScriptsAssemble(
     def buildScripts(
         cleanWorkspace,
         cleanWorkspaceAfter,
-        cleanWorkspaceOutputAfter,
+        cleanWorkspaceBuildOutputAfter,
         useAdoptShellScripts,
         enableSigner,
         buildConfigEnvVars
@@ -1951,15 +1951,21 @@ def buildScriptsAssemble(
                         }
                         throw new Exception("[ERROR] Build JDK timeout (${buildTimeouts.BUILD_JDK_TIMEOUT} HOURS) has been reached. Exiting...")
                     }
-                    // Run a downstream job on riscv machine that returns the java version. Otherwise, just read the version.txt
-                    String versionOut
-                    if (buildConfig.BUILD_ARGS.contains('--cross-compile')) {
-                        context.println "[WARNING] Don't read faked version.txt on cross compiled build! Archiving early and running downstream job to retrieve java version..."
-                        versionOut = readCrossCompiledVersionString()
+                    // TODO: Make the "internal signing/assembly" part independent of
+                    // ENABLE_SIGNER so that this platform-specific logic is not required
+                    if ((buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') && buildConfig.JAVA_TO_BUILD != 'jdk8u' && enableSigner) {
+                        context.println "openjdk_build_pipeline: Internal signing phase required - skipping metadata reading"
                     } else {
-                        versionOut = context.readFile('workspace/target/metadata/version.txt')
+                    // Run a downstream job on riscv machine that returns the java version. Otherwise, just read the version.txt
+                        String versionOut
+                            if (buildConfig.BUILD_ARGS.contains('--cross-compile')) {
+                            context.println "[WARNING] Don't read faked version.txt on cross compiled build! Archiving early and running downstream job to retrieve java version..."
+                            versionOut = readCrossCompiledVersionString()
+                        } else {
+                            versionOut = context.readFile('workspace/target/metadata/version.txt')
+                        }
+                        versionInfo = parseVersionOutput(versionOut)
                     }
-                    versionInfo = parseVersionOutput(versionOut)
                 }
                 if (!((buildConfig.TARGET_OS == 'mac' || buildConfig.TARGET_OS == 'windows') && buildConfig.JAVA_TO_BUILD != 'jdk8u' && enableSigner)) {
                     writeMetadata(versionInfo, true)
