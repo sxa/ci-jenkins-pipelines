@@ -1779,6 +1779,11 @@ def buildScriptsAssemble(
             openjdk_build_dir =  context.WORKSPACE + '/' + build_path
             openjdk_build_dir_arg = ""
 
+if (cleanWorkspace)
+   context.println "cleanWorkspace is TRUE"
+else
+   context.println "cleanWorkspace is FALSE"
+   
             if (cleanWorkspace) {
                 try {
                     try {
@@ -1786,9 +1791,11 @@ def buildScriptsAssemble(
                             // Clean non-hidden files first
                             // Note: Underlying org.apache DirectoryScanner used by cleanWs has a bug scanning where it misses files containing ".." so use rm -rf instead
                             // Issue: https://issues.jenkins.io/browse/JENKINS-64779
+context.println "SXAEC: CABBAGE"
                             if (context.WORKSPACE != null && !context.WORKSPACE.isEmpty()) {
                                 context.println 'Cleaning workspace non-hidden files: ' + context.WORKSPACE + '/*'
                                 batOrSh(script: 'rm -rf ' + context.WORKSPACE + '/*')
+                                context.println 'SXAEC: rm -rf completed'
                             } else {
                                 context.println 'Warning: Unable to clean workspace as context.WORKSPACE is null/empty'
                             }
@@ -2148,7 +2155,6 @@ def buildScriptsAssemble(
                             label = 'codebuild'
                         }
 
-
                         context.println "[NODE SHIFT] MOVING INTO DOCKER NODE MATCHING LABELNAME ${label}..."
                         if ( ! ( "${buildConfig.DOCKER_IMAGE}" ==~ /^[A-Za-z0-9\/\.\-_:]*$/ ) ||
                              ! ( "${buildConfig.DOCKER_ARGS}"  ==~ /^[A-Za-z0-9\/\.\-_=\ ]*$/ ) ) {
@@ -2157,8 +2163,15 @@ def buildScriptsAssemble(
                         context.node(label) {
                             addNodeToBuildDescription()
                             // Cannot clean workspace from inside docker container
-                            if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
-                                context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security')
+                            if ( buildConfig.TARGET_OS == 'windows' ) {
+                                if ( buildConfig.DOCKER_IMAGE ) {
+                                    context.println "Cleaning parts of workspace from within windows docker container..."
+                                    context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security')
+                                }
+//                                if ( cleanWorkspace && buildConfig.TARGET_OS == 'windows' ) {
+//                                    context.println "Cleaning workspace directory on Windows dockerhost before entering container"
+//                                    context.bat('rm -rf c:/workspace/openjdk-build/')
+//                                }
                             }
                             if (cleanWorkspace) {
                                 try {
