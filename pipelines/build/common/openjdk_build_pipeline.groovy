@@ -1667,7 +1667,7 @@ def buildScriptsAssemble(
     }
     context.stage('assemble') {
         // This would ideally not be required but it's due to lack of UID mapping in windows containers
-        if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE) {
+        if ( buildConfig.TARGET_OS == 'windows') {
             context.bat('chmod -R a+rwX ' + '/cygdrive/c/workspace/openjdk-build/workspace/build/src/build/*')
         }
         // Restore signed JMODs
@@ -1791,11 +1791,9 @@ else
                             // Clean non-hidden files first
                             // Note: Underlying org.apache DirectoryScanner used by cleanWs has a bug scanning where it misses files containing ".." so use rm -rf instead
                             // Issue: https://issues.jenkins.io/browse/JENKINS-64779
-context.println "SXAEC: CABBAGE"
                             if (context.WORKSPACE != null && !context.WORKSPACE.isEmpty()) {
                                 context.println 'Cleaning workspace non-hidden files: ' + context.WORKSPACE + '/*'
                                 batOrSh(script: 'rm -rf ' + context.WORKSPACE + '/*')
-                                context.println 'SXAEC: rm -rf completed'
                             } else {
                                 context.println 'Warning: Unable to clean workspace as context.WORKSPACE is null/empty'
                             }
@@ -1895,15 +1893,9 @@ context.println "SXAEC: CABBAGE"
                                     }
                                     context.println "base build path for jmod signing = ${base_path}"
                                     context.stash name: 'jmods',
-                                        includes: "${base_path}/hotspot/variant-server/**/*.exe," +
-                                            "${base_path}/hotspot/variant-server/**/*.dll," +
-                                            "${base_path}/hotspot/variant-server/**/*.dylib," +
-                                            "${base_path}/support/modules_cmds/**/*.exe," +
-                                            "${base_path}/support/modules_cmds/**/*.dll," +
-                                            "${base_path}/support/modules_cmds/**/*.dylib," +
-                                            "${base_path}/support/modules_libs/**/*.exe," +
-                                            "${base_path}/support/modules_libs/**/*.dll," +
-                                            "${base_path}/support/modules_libs/**/*.dylib," +
+                                        includes: "${base_path}/hotspot/variant-server/**/*," +
+                                            "${base_path}/support/modules_cmds/**/*," +
+                                            "${base_path}/support/modules_libs/**/*," +
                                             // JDK 16 + jpackage needs to be signed as well stash the resources folder containing the executables
                                             "${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
 
