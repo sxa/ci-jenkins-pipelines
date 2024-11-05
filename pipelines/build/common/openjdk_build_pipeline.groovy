@@ -2159,6 +2159,9 @@ def buildScriptsAssemble(
                             addNodeToBuildDescription()
                             // Cannot clean workspace from inside docker container
                             if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
+                                batOrSh("ls -l c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security || true")
+                                context.bat(script: "dir /q c:\\workspace\\openjdk-build\\cyclonedx-lib", returnStatus: true)
+                                context.bat(script: "dir /q c:\\workspace\\openjdk-build\\security", returnStatus: true)
                                 context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security')
                             }
                             if (cleanWorkspace) {
