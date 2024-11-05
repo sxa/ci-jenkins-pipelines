@@ -2162,7 +2162,7 @@ def buildScriptsAssemble(
                                 batOrSh("ls -l c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security || true")
                                 context.bat(script: "dir /q c:\\workspace\\openjdk-build\\cyclonedx-lib", returnStatus: true)
                                 context.bat(script: "dir /q c:\\workspace\\openjdk-build\\security", returnStatus: true)
-                                context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security')
+//                                context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security')
                             }
                             if (cleanWorkspace) {
                                 try {
