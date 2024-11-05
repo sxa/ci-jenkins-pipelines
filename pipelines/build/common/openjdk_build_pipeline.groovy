@@ -628,6 +628,7 @@ class Build {
                             job: 'AQA_Test_Pipeline',
                             parameters: context.MapParameters(parameters: [context.MapParameter(name: 'SDK_RESOURCE', value: 'customized'),
                                                                     context.MapParameter(name: 'TARGETS', value: "${targetTests}"),
+                                                                    context.MapParameter(name: 'JCK_GIT_REPO', value: "git@github.com:temurin-compliance/JCK${jdkVersion}-unzipped.git"),
                                                                     context.MapParameter(name: 'CUSTOMIZED_SDK_URL', value: "${sdkUrl}"),
                                                                     context.MapParameter(name: 'JDK_VERSIONS', value: "${jdkVersion}"),
                                                                     context.MapParameter(name: 'PARALLEL', value: parallel),
@@ -1667,7 +1668,7 @@ def buildScriptsAssemble(
     }
     context.stage('assemble') {
         // This would ideally not be required but it's due to lack of UID mapping in windows containers
-        if ( buildConfig.TARGET_OS == 'windows') {
+        if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE) {
             context.bat('chmod -R a+rwX ' + '/cygdrive/c/workspace/openjdk-build/workspace/build/src/build/*')
         }
         // Restore signed JMODs
@@ -1779,11 +1780,6 @@ def buildScriptsAssemble(
             openjdk_build_dir =  context.WORKSPACE + '/' + build_path
             openjdk_build_dir_arg = ""
 
-if (cleanWorkspace)
-   context.println "cleanWorkspace is TRUE"
-else
-   context.println "cleanWorkspace is FALSE"
-   
             if (cleanWorkspace) {
                 try {
                     try {
@@ -1893,9 +1889,15 @@ else
                                     }
                                     context.println "base build path for jmod signing = ${base_path}"
                                     context.stash name: 'jmods',
-                                        includes: "${base_path}/hotspot/variant-server/**/*," +
-                                            "${base_path}/support/modules_cmds/**/*," +
-                                            "${base_path}/support/modules_libs/**/*," +
+                                        includes: "${base_path}/hotspot/variant-server/**/*.exe," +
+                                            "${base_path}/hotspot/variant-server/**/*.dll," +
+                                            "${base_path}/hotspot/variant-server/**/*.dylib," +
+                                            "${base_path}/support/modules_cmds/**/*.exe," +
+                                            "${base_path}/support/modules_cmds/**/*.dll," +
+                                            "${base_path}/support/modules_cmds/**/*.dylib," +
+                                            "${base_path}/support/modules_libs/**/*.exe," +
+                                            "${base_path}/support/modules_libs/**/*.dll," +
+                                            "${base_path}/support/modules_libs/**/*.dylib," +
                                             // JDK 16 + jpackage needs to be signed as well stash the resources folder containing the executables
                                             "${base_path}/jdk/modules/jdk.jpackage/jdk/jpackage/internal/resources/*"
 
@@ -2147,6 +2149,7 @@ else
                             label = 'codebuild'
                         }
 
+
                         context.println "[NODE SHIFT] MOVING INTO DOCKER NODE MATCHING LABELNAME ${label}..."
                         if ( ! ( "${buildConfig.DOCKER_IMAGE}" ==~ /^[A-Za-z0-9\/\.\-_:]*$/ ) ||
                              ! ( "${buildConfig.DOCKER_ARGS}"  ==~ /^[A-Za-z0-9\/\.\-_=\ ]*$/ ) ) {
@@ -2155,15 +2158,8 @@ else
                         context.node(label) {
                             addNodeToBuildDescription()
                             // Cannot clean workspace from inside docker container
-                            if ( buildConfig.TARGET_OS == 'windows' ) {
-                                if ( buildConfig.DOCKER_IMAGE ) {
-                                    context.println "Cleaning parts of workspace from within windows docker container..."
-                                    context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security')
-                                }
-//                                if ( cleanWorkspace && buildConfig.TARGET_OS == 'windows' ) {
-//                                    context.println "Cleaning workspace directory on Windows dockerhost before entering container"
-//                                    context.bat('rm -rf c:/workspace/openjdk-build/')
-//                                }
+                            if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
+                                context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security')
                             }
                             if (cleanWorkspace) {
                                 try {
@@ -2437,13 +2433,11 @@ else
                                     platform = 'x86-64_' + buildConfig.TARGET_OS
                                 } else {
                                     platform = buildConfig.ARCHITECTURE + '_' + buildConfig.TARGET_OS
-                                }           
-                                if ( !(platform =='aarch64_windows') ) {
-                                    if ( !(buildConfig.JAVA_TO_BUILD == 'jdk8u' && platform == 's390x_linux') ) {
-                                        context.echo "openjdk_build_pipeline: Remote trigger Eclipse Temurin AQA_Test_Pipeline job with ${platform} ${buildConfig.JAVA_TO_BUILD}"
-                                        def remoteTargets = remoteTriggerJckTests(platform, filename)
-                                        context.parallel remoteTargets
-                                    }
+                                }
+                                if ( !(buildConfig.JAVA_TO_BUILD == 'jdk8u' && platform == 's390x_linux') ) {
+                                    context.echo "openjdk_build_pipeline: Remote trigger Eclipse Temurin AQA_Test_Pipeline job with ${platform} ${buildConfig.JAVA_TO_BUILD}"
+                                    def remoteTargets = remoteTriggerJckTests(platform, filename)
+                                    context.parallel remoteTargets
                                 }
                             }
 
@@ -2477,7 +2471,6 @@ else
             }
         }
     }
-//  } // assemble stage
 }
 
 return {
