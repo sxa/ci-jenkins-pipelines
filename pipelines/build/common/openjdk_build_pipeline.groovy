@@ -2137,6 +2137,13 @@ def buildScriptsAssemble(
                             updateGithubCommitStatus('PENDING', 'Pending')
                         }
                     }
+                    context.println("SXAEC1: Setting workspace")
+                    def workspace
+                    if (buildConfig.TARGET_OS == 'windows') {
+                        context.println("SXAEC2: Setting workspace")
+                        workspace = 'C:/workspace/openjdk-build/'
+                    }
+
                     if (buildConfig.DOCKER_IMAGE) {
                         context.println "openjdk_build_pipeline: preparing to use docker image"
                         // Docker build environment
@@ -2157,12 +2164,15 @@ def buildScriptsAssemble(
                         }
                         context.node(label) {
                             addNodeToBuildDescription()
-                            // Cannot clean workspace from inside docker container
-                            if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
-                                batOrSh("ls -l c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security || true")
-                                context.bat(script: "dir /q c:\\workspace\\openjdk-build\\cyclonedx-lib", returnStatus: true)
-                                context.bat(script: "dir /q c:\\workspace\\openjdk-build\\security", returnStatus: true)
-//                                context.bat('rm -rf c:/workspace/openjdk-build/cyclonedx-lib c:/workspace/openjdk-build/security')
+                            context.ws(workspace) {
+                                // Cannot clean workspace from inside docker container
+                                if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
+                                     batOrSh("ls -l " + context.WORKSPACE + "/cyclonedx-lib " + context.WORKSPACE + "/security || true")
+//                                   context.bat(script: "dir /q c:\\workspace\\openjdk-build\\cyclonedx-lib", returnStatus: true)
+//                                   context.bat(script: "dir /q c:\\workspace\\openjdk-build\\security", returnStatus: true)
+                                     context.bat("rm -rf " + context.WORKSPACE + "/cyclonedx-lib")
+                                     context.bat("rm -rf " + context.WORKSPACE + "/security")
+                                }
                             }
                             if (cleanWorkspace) {
                                 try {
@@ -2260,7 +2270,6 @@ def buildScriptsAssemble(
                                 }
                                 if (buildConfig.TARGET_OS == 'windows') {
                                     context.println "openjdk_build_pipeline: running exploded build in docker on Windows"
-                                    def workspace = 'C:/workspace/openjdk-build/'
                                     context.echo("Switched to using non-default workspace path ${workspace}")
                                     context.println "openjdk_build_pipeline: building in windows docker image " + buildConfig.DOCKER_IMAGE
                                     context.ws(workspace) {
@@ -2292,7 +2301,6 @@ def buildScriptsAssemble(
                                 if ( enableSigner && buildConfig.JAVA_TO_BUILD != 'jdk8u' ) {
                                     context.println "openjdk_build_pipeline: running eclipse signing phase"
                                     buildScriptsEclipseSigner()
-                                    def workspace = 'C:/workspace/openjdk-build/'
                                     context.ws(workspace) {
                                         context.println "Signing with non-default workspace location ${workspace}"
                                         context.println "openjdk_build_pipeline: running assemble phase (invocation 1)"
@@ -2321,7 +2329,6 @@ def buildScriptsAssemble(
                             context.echo("checking ${buildConfig.TARGET_OS}")
                             if (buildConfig.TARGET_OS == 'windows') {
                                 // See https://github.com/adoptium/infrastucture/issues/1284#issuecomment-621909378 for justification of the below path
-                                def workspace = 'C:/workspace/openjdk-build/'
                                 if (env.CYGWIN_WORKSPACE) {
                                     workspace = env.CYGWIN_WORKSPACE
                                 }
