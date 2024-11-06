@@ -2168,10 +2168,10 @@ def buildScriptsAssemble(
                                 // Cannot clean workspace from inside docker container
                                 if ( buildConfig.TARGET_OS == 'windows' && buildConfig.DOCKER_IMAGE ) {
                                      batOrSh("ls -l " + context.WORKSPACE + "/cyclonedx-lib " + context.WORKSPACE + "/security || true")
-//                                   context.bat(script: "dir /q c:\\workspace\\openjdk-build\\cyclonedx-lib", returnStatus: true)
-//                                   context.bat(script: "dir /q c:\\workspace\\openjdk-build\\security", returnStatus: true)
-                                     context.bat("rm -rf " + context.WORKSPACE + "/cyclonedx-lib")
-                                     context.bat("rm -rf " + context.WORKSPACE + "/security")
+                                   context.bat(script: "dir /q c:\\workspace\\openjdk-build\\cyclonedx-lib", returnStatus: true)
+                                   context.bat(script: "dir /q c:\\workspace\\openjdk-build\\security", returnStatus: true)
+//                                     context.bat("rm -rf " + context.WORKSPACE + "/cyclonedx-lib")
+//                                     context.bat("rm -rf " + context.WORKSPACE + "/security")
                                 }
                             }
                             if (cleanWorkspace) {
