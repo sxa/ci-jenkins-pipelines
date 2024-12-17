@@ -2197,7 +2197,8 @@ def buildScriptsAssemble(
                                             } catch (e) {
                                                 context.println "Failed to clean ${e}"
                                             }
-                                            cleanWorkspace = false
+                                            // SXAEC // cleanWorkspace = false
+                                            context.println("SXAEC: Not setting cleanWorkspace to false")
                                         }
                                     }
                                 } catch (FlowInterruptedException e) {
