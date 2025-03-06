@@ -119,7 +119,7 @@ node(params.DEVKIT_BUILD_NODE) {
 
     if (params.DOCKER_IMAGE != "") { 
         // Build within docker container
-        if (!("${params.DOCKER_IMAGE}".contains('rhel'))) {
+        if (!("${params.DOCKER_IMAGE}".contains('sxa'))) {
             docker.image(params.DOCKER_IMAGE).pull()
         }
         String dockerRunArg=""
