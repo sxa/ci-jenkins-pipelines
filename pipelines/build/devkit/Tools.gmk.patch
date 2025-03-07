@@ -1,8 +1,6 @@
-iff --git a/make/devkit/Tools.gmk b/make/devkit/Tools.gmk
-index 249eaa66247..56e348b29b6 100644
---- a/make/devkit/Tools.gmk
-+++ b/make/devkit/Tools.gmk
-@@ -68,7 +68,8 @@ else ifeq ($(BASE_OS), Fedora)
+--- a/make/devkit/Tools.gmk	2025-03-07 11:18:20.201019275 +0000
++++ b/make/devkit/Tools.gmk    	2025-03-07 11:16:51.337971432 +0000
+@@ -68,10 +68,11 @@
      BASE_OS_VERSION := $(DEFAULT_OS_VERSION)
    endif
    ifeq ($(ARCH), riscv64)
@@ -11,8 +9,12 @@ index 249eaa66247..56e348b29b6 100644
 +    BASE_URL := https://secondary.fedoraproject.org/pub/alt/risc-v/archive/RPMS/riscv64
    else
      LATEST_ARCHIVED_OS_VERSION := 35
-     ifeq ($(filter x86_64 armhfp, $(ARCH)), )
-@@ -92,9 +93,9 @@ endif
+-    ifeq ($(filter x86_64 armhfp, $(ARCH)), )
++    ifeq ($(filter x86_64 aarch64 armhfp, $(ARCH)), )
+       FEDORA_TYPE := fedora-secondary
+     else
+       FEDORA_TYPE := fedora/linux
+@@ -92,9 +93,9 @@
  # Define external dependencies
  
  # Latest that could be made to work.
