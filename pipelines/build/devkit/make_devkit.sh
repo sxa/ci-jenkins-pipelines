@@ -45,10 +45,14 @@ fi
 # Patch to support Centos, RHEL
 if [ "${ARCH}" = "s390x" -o "${ARCH}" = "riscv64" ] ; then
   # No numa packages available
+  echo Applying s390x/riscv64 patch to Tools.gmk
   sed 's/numa.*\\/\\/g' < "../Tools.gmk.${VERSION}.patch" | patch -p1
 else
+  echo Applying generic patch to Tools.gmk
   patch -p1 < "../Tools.gmk.${VERSION}.patch"
 fi
+find . -name Tools.gmk -ls
+find . -name Tools.gmk -print | xargs grep binutils
 # Something I tested didn't work with uname -p, so switching to uname -m
 patch -p1 < "../Makefile.${VERSION}.patch"
 
