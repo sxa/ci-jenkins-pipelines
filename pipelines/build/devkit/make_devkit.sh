@@ -38,7 +38,7 @@ git clone --depth 1 ${openjdkRepo} ${VERSION}
 cd ${VERSION}
 
 # jdk21u devkit on Centos7 does not like binutils 2.39's build system (texinfo issue?)
-if [ "${VERSION}" = "jdk21u" ]; then
+if [ "${VERSION}" = "jdk21u" -o "${ARCH}" = "riscv64" ]; then
   cp ../binutils-2.39.patch make/devkit/patches/${ARCH}-binutils-2.39.patch
 fi
 
