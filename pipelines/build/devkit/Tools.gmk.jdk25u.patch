@@ -1,6 +1,6 @@
 --- a/make/devkit/Tools.gmk	2025-08-08 15:45:38.000000000 +0100
 +++ b/make/devkit/Tools.gmk	2025-08-13 13:34:26.000000000 +0100
-> @@ -94,7 +111,7 @@
+@@ -94,7 +111,7 @@
  # Define external dependencies
  
  gcc_ver_only := 14.2.0
