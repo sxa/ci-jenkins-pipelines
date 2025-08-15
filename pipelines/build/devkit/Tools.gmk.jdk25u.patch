@@ -1,14 +1,5 @@
 --- a/make/devkit/Tools.gmk	2025-08-08 15:45:38.000000000 +0100
 +++ b/make/devkit/Tools.gmk	2025-08-13 13:34:26.000000000 +0100
-@@ -94,7 +111,7 @@
- # Define external dependencies
- 
- gcc_ver_only := 14.2.0
--binutils_ver_only := 2.43
-+binutils_ver_only := 2.39
- ccache_ver_only := 4.10.2
- CCACHE_CMAKE_BASED := 1
- mpfr_ver_only := 4.2.1
 @@ -64,13 +64,30 @@
      BASE_URL := https://yum.oracle.com/repo/OracleLinux/OL6/4/base/$(ARCH)/
      LINUX_VERSION := OL6.4
@@ -41,6 +32,15 @@
    else
      LATEST_ARCHIVED_OS_VERSION := 35
      ifeq ($(filter x86_64 armhfp, $(ARCH)), )
+@@ -94,7 +111,7 @@
+ # Define external dependencies
+ 
+ gcc_ver_only := 14.2.0
+-binutils_ver_only := 2.43
++binutils_ver_only := 2.39
+ ccache_ver_only := 4.10.2
+ CCACHE_CMAKE_BASED := 1
+ mpfr_ver_only := 4.2.1
 @@ -102,12 +119,38 @@
  mpc_ver_only := 1.3.1
  gdb_ver_only := 15.2
