@@ -135,7 +135,7 @@ node(params.DEVKIT_BUILD_NODE) {
         build()
     }
   } finally { 
-    cleanWs notFailBuild: true
+    println "Not cleaning workspace for now while debug is in place" // cleanWs notFailBuild: true
   } 
 }
 
