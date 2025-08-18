@@ -49,7 +49,8 @@ def build_devkit() {
         println "devkit artifact filename = ${devkit_tarball}"
  
         // Compress and archive
-        sh(script:"tar -cf - -C pipelines/build/devkit/${params.VERSION}/build/devkit/result/${devkit_target}-to-${devkit_target} . | GZIP=-9 xz -c > ${devkit_tarball}")
+        sh(script:"ln -sf ${devkit_target}-to-${devkit_target} pipelines/build/devkit/${params.VERSION}/build/devkit/result/${adoptium_devkit_filename}")
+        sh(script:"tar -cf = -C pipelines/build/devkit/${params.VERSION}/build/devkit/result ${adoptium_devkit_filename} | GZIP=-9 xz -c > ${devkit_tarball}")
 
         // Create sha256.txt
         sh(script:"sha256sum ${devkit_tarball} > ${devkit_tarball}.sha256.txt")
