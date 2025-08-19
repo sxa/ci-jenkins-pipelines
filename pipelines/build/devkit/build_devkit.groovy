@@ -50,7 +50,7 @@ def build_devkit() {
  
         // Compress and archive
         sh(script:"ln -sf ${devkit_target}-to-${devkit_target} pipelines/build/devkit/${params.VERSION}/build/devkit/result/${adoptium_devkit_release_tag}")
-        sh(script:"tar -cf - -C pipelines/build/devkit/${params.VERSION}/build/devkit/result ${adoptium_devkit_release_tag}/* | GZIP=-9 xz -c > ${devkit_tarball}")
+        sh(script:"cd pipelines/build/devkit/${params.VERSION}/build/devkit/result && tar cf - ${adoptium_devkit_release_tag}/* | GZIP=-9 xz -c > ../../../../../../../${devkit_tarball}")
 
         // Create sha256.txt
         sh(script:"sha256sum ${devkit_tarball} > ${devkit_tarball}.sha256.txt")
