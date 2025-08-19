@@ -83,6 +83,11 @@ cd ../..
 BOOTSTRAP_DEVKIT="$(pwd)/build/bootstrap_${devkit_target}-to-${devkit_target}"
 BOOTSTRAP_DOWNLOADED_RPMS="$(pwd)/build/bootstrap_rpms_${devkit_target}-to-${devkit_target}"
 
+set -x
+
+ls -l "build/devkit/result" || true
+ls -ld "${BOOTSTRAP_DEVKIT}" || true
+ls -ld "${BOOTSTRAP_DOWNLOADED_RPMS}" || true
 mv build/devkit/result/${devkit_target}-to-${devkit_target} "${BOOTSTRAP_DEVKIT}"
 mv build/devkit/download/rpms/${ARCH}-linux-gnu-${BASE_OS}${BASE_OS_VERSION} "${BOOTSTRAP_DOWNLOADED_RPMS}"
 
