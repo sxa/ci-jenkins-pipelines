@@ -89,18 +89,19 @@
          ifeq ($(wildcard $(DOWNLOAD_RPMS)/*.rpm), )
  	  cd $(DOWNLOAD_RPMS) && \
 -	      wget -r -np -nd $(patsubst %, -A "*%*.rpm", $(RPM_LIST)) $(BASE_URL)
-+	    wget -e robots=off -r -np -nd $(patsubst %, -A "*%*.rpm", $(RPM_LIST)) $(BASE_URL)
-+	    echo SXAEC: $(ARCH)
-+	    gpg --keyserver keyserver.ubuntu.com --recv-keys \
-+	      $($(BASE_OS)_$(BASE_OS_MAJOR_VERSION)_GPG_KEY_$(ARCH))
-+	    gpg --keyserver keyserver.ubuntu.com --recv-keys \
-+	      $($(BASE_OS)_$(BASE_OS_MAJOR_VERSION)_GPG_KEY_noarch)
-+	    rm -f $(DOWNLOAD_RPMS)/rpm.sig && gpg --armor --export \
-+	      $($(BASE_OS)_$(BASE_OS_MAJOR_VERSION)_GPG_KEY_$(ARCH)) > $(DOWNLOAD_RPMS)/rpm.sig
-+	    gpg --armor --export \
-+	      $($(BASE_OS)_$(BASE_OS_MAJOR_VERSION)_GPG_KEY_noarch) >> $(DOWNLOAD_RPMS)/rpm.sig
-+	    rpm --import $(DOWNLOAD_RPMS)/rpm.sig || true
-+	    rpm -K $(DOWNLOAD_RPMS)/*.rpm
++	    curl https://ci.adoptium.net/userContent/devkit/download-rpmsF2728.riscv64.tar | tar xpvf -
++	    #wget -e robots=off -r -np -nd $(patsubst %, -A "*%*.rpm", $(RPM_LIST)) $(BASE_URL)
++	    #echo SXAEC: $(ARCH)
++	    #gpg --keyserver keyserver.ubuntu.com --recv-keys \
++	    #  $($(BASE_OS)_$(BASE_OS_MAJOR_VERSION)_GPG_KEY_$(ARCH))
++	    #gpg --keyserver keyserver.ubuntu.com --recv-keys \
++	    #  $($(BASE_OS)_$(BASE_OS_MAJOR_VERSION)_GPG_KEY_noarch)
++	    #rm -f $(DOWNLOAD_RPMS)/rpm.sig && gpg --armor --export \
++	    #  $($(BASE_OS)_$(BASE_OS_MAJOR_VERSION)_GPG_KEY_$(ARCH)) > $(DOWNLOAD_RPMS)/rpm.sig
++	    #gpg --armor --export \
++	    #  $($(BASE_OS)_$(BASE_OS_MAJOR_VERSION)_GPG_KEY_noarch) >> $(DOWNLOAD_RPMS)/rpm.sig
++	    #rpm --import $(DOWNLOAD_RPMS)/rpm.sig || true
++	    #rpm -K $(DOWNLOAD_RPMS)/*.rpm
          endif
  
  ################################################################################
