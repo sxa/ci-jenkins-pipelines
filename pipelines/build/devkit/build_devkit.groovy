@@ -112,8 +112,9 @@ def build() {
     dryrunPublish()
 }
 
+
 node(params.DEVKIT_BUILD_NODE) {
-  try {
+//  try {
     cleanWs notFailBuild: true, disableDeferredWipeout: true, deleteDirs: true
 
     if (params.DOCKER_IMAGE != "") { 
@@ -133,8 +134,8 @@ node(params.DEVKIT_BUILD_NODE) {
         // Build directly on host
         build()
     }
-  } finally { 
-    cleanWs notFailBuild: true
-  } 
+//  } finally { 
+//    cleanWs notFailBuild: true
+//  } 
 }
 
