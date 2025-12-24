@@ -91,7 +91,6 @@
 -	      wget -r -np -nd $(patsubst %, -A "*%*.rpm", $(RPM_LIST)) $(BASE_URL)
 +	    curl https://ci.adoptium.net/userContent/devkit/download-rpmsF2728.riscv64.tar | tar xpvf -
 +	    #wget -e robots=off -r -np -nd $(patsubst %, -A "*%*.rpm", $(RPM_LIST)) $(BASE_URL)
-+	    #echo SXAEC: $(ARCH)
 +	    #gpg --keyserver keyserver.ubuntu.com --recv-keys \
 +	    #  $($(BASE_OS)_$(BASE_OS_MAJOR_VERSION)_GPG_KEY_$(ARCH))
 +	    #gpg --keyserver keyserver.ubuntu.com --recv-keys \
