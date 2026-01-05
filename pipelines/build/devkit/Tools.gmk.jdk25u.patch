@@ -1,5 +1,5 @@
---- a/make/devkit/Tools.gmk	2025-08-08 15:45:38.000000000 +0100
-+++ b/make/devkit/Tools.gmk	2025-08-13 13:34:26.000000000 +0100
+--- a/make/devkit/Tools.gmk    2026-01-05 10:22:00.539127296 +0000
++++ b/make/devkit/Tools.gmk    2026-01-05 10:22:23.440284861 +0000
 @@ -64,13 +64,30 @@
      BASE_URL := https://yum.oracle.com/repo/OracleLinux/OL6/4/base/$(ARCH)/
      LINUX_VERSION := OL6.4
@@ -32,6 +32,15 @@
    else
      LATEST_ARCHIVED_OS_VERSION := 35
      ifeq ($(filter x86_64 armhfp, $(ARCH)), )
+@@ -85,7 +102,7 @@
+       BASE_URL := https://archives.fedoraproject.org/pub/archive/$(FEDORA_TYPE)/releases/$(BASE_OS_VERSION)/Everything/$(ARCH)/os/Packages/
+     endif
+   endif
+-  LINUX_VERSION := Fedora_$(BASE_OS_VERSION)
++  LINUX_VERSION := Fedora$(BASE_OS_VERSION)
+ else
+   $(error Unknown base OS $(BASE_OS))
+ endif
 @@ -94,7 +111,7 @@
  # Define external dependencies
  
